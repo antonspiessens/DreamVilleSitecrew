@@ -51,6 +51,17 @@ header { flex-shrink: 0; background: var(--surface); border-bottom: 1px solid va
 .content-area { flex: 1; overflow-y: auto; padding: 20px; }
 .content-area h2 { margin-bottom: 14px; font-size: 18px; font-weight: 800; }
 
+/* ── WERKTIJDEN ── */
+.hours-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
+.hours-title { font-size: 14px; font-weight: 800; margin-bottom: 10px; }
+.hours-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 10px; margin-bottom: 10px; }
+.hours-item { background: var(--bg); border: 1px solid var(--border); border-left-width: 3px; border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+.hours-item.ae { border-left-color: var(--ae); }
+.hours-item.rw { border-left-color: var(--rw); }
+.hours-item.tw { border-left-color: var(--tw); }
+.hours-item b { display: block; font-size: 12px; color: var(--muted); margin-bottom: 2px; font-weight: 700; }
+.hours-note { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
 /* ── DAY CARDS ── */
 .home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); gap: 16px; align-items: start; }
 .home-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
@@ -593,9 +604,24 @@ function uniqueDatesForPhase(phase) {
 
 const PHASE_TITLES = { opbouw:'Opbouw', show:'Show', afbouw:'Afbouw' };
 
+function renderWorkingHoursCard() {
+  return `<div class="hours-card">
+    <div class="hours-title">⏰ Werktijden</div>
+    <div class="hours-grid">
+      <div class="hours-item ae"><b>All Eventz &amp; Radar</b>08u00 – 17u30</div>
+      <div class="hours-item tw"><b>Team Wauw</b>08u30 – 18u00</div>
+    </div>
+    <div class="hours-note">
+      Alle ploegen stoppen een halfuur voor het einduur met werken op het veld om op te ruimen.<br>
+      Een kwartier voor het einduur vertrekken ze naar het machinepark om op tijd uit te schrijven.
+    </div>
+  </div>`;
+}
+
 function renderPhase() {
   const dates = uniqueDatesForPhase(currentPhase);
-  let html = `<h2>${PHASE_TITLES[currentPhase]}</h2>`;
+  let html = renderWorkingHoursCard();
+  html += `<h2>${PHASE_TITLES[currentPhase]}</h2>`;
   if(dates.length===0){
     html += '<div class="empty-msg">Geen planningsdata voor deze fase.</div>';
   } else {
