@@ -245,9 +245,11 @@ td.cc.inactive { cursor: default; }
 .materials-toggle:hover { color: var(--text); }
 .mat-arrow { font-size: 9px; }
 .materials-panel { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
-.materials-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 6px 12px; margin-bottom: 8px; }
+.materials-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px,1fr)); gap: 6px 12px; margin-bottom: 8px; }
 .mat-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); cursor: pointer; }
 .mat-item input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+.mat-qty { margin-left: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 11px; padding: 1px 3px; cursor: pointer; }
+.mat-qty:disabled { opacity: .35; cursor: default; }
 .mat-extra { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 7px 10px; font-size: 12px; font-family: inherit; outline: none; resize: vertical; min-height: 40px; }
 .mat-extra:focus { border-color: var(--accent); }
 .mat-extra::placeholder { color: var(--muted); }
@@ -1120,6 +1122,9 @@ const MATERIAL_ITEMS = [
   { key:'voorhamer',     label:'Voorhamer' },
   { key:'walkie',        label:'Walkie' },
   { key:'koelbox',       label:'Koelbox' },
+  { key:'manitou',       label:'Manitou' },
+  { key:'knikmops',      label:'Knikmops' },
+  { key:'schup',         label:'Schup' },
 ];
 let materialsOpenIds = new Set(); // taakIds waarvan materiaalpaneel open staat (UI state, niet opgeslagen)
 let materialsShowPast = false; // toon "Verleden"-sectie in materiaaloverzicht (UI state, niet opgeslagen)
@@ -1296,9 +1301,17 @@ function refreshTaskViews(slotId) {
 }
 
 // ── Materiaalchecklist (per taak) ──
+function getMaterialQty(mat, key) {
+  const v = (mat.items||{})[key];
+  if(v === true) return 1;
+  if(typeof v === 'number') return v;
+  return 0;
+}
+
 function materialsCount(t) {
   const mat = t.materials || {};
-  let n = Object.values(mat.items||{}).filter(Boolean).length;
+  let n = 0;
+  Object.keys(mat.items||{}).forEach(k=>{ if(getMaterialQty(mat,k)>0) n++; });
   if(mat.extra && mat.extra.trim()) n++;
   return n;
 }
@@ -1309,6 +1322,13 @@ function materialsBadgeHtml(t) {
   return `<span class="tc-matbadge">🧰 ${n}</span>`;
 }
 
+function materialItemHtml(slotId, taskId, mat, m) {
+  const qty = getMaterialQty(mat, m.key);
+  const checked = qty>0;
+  const opts = [1,2,3,4,5,6,7,8,9,10].map(n=>`<option value="${n}" ${n===(qty||1)?'selected':''}>${n}</option>`).join('');
+  return `<label class="mat-item"><input type="checkbox" ${checked?'checked':''} onchange="toggleMaterialItem('${slotId}','${taskId}','${m.key}')"> ${m.label}<select class="mat-qty" ${checked?'':'disabled'} onchange="setMaterialQty('${slotId}','${taskId}','${m.key}',this.value)">${opts}</select></label>`;
+}
+
 function renderMaterialsHtml(slotId, t) {
   const open = materialsOpenIds.has(t.id);
   const mat = t.materials || {items:{}, extra:''};
@@ -1316,10 +1336,7 @@ function renderMaterialsHtml(slotId, t) {
   let html = `<div class="materials-toggle" onclick="toggleMaterialsPanel('${slotId}','${t.id}')">🧰 Materiaal${n?` (${n})`:''} <span class="mat-arrow">${open?'▾':'▸'}</span></div>`;
   if(open){
     html += '<div class="materials-panel"><div class="materials-grid">';
-    MATERIAL_ITEMS.forEach(m=>{
-      const checked = !!(mat.items||{})[m.key];
-      html += `<label class="mat-item"><input type="checkbox" ${checked?'checked':''} onchange="toggleMaterialItem('${slotId}','${t.id}','${m.key}')"> ${m.label}</label>`;
-    });
+    MATERIAL_ITEMS.forEach(m=>{ html += materialItemHtml(slotId, t.id, mat, m); });
     html += '</div>';
     html += `<textarea class="mat-extra" placeholder="Extra materiaal (vrije tekst)..." onchange="setMaterialExtra('${slotId}','${t.id}',this.value)">${esc(mat.extra||'')}</textarea>`;
     html += '</div>';
@@ -1339,7 +1356,21 @@ function toggleMaterialItem(slotId, taskId, key) {
   if(t){
     if(!t.materials) t.materials = {items:{}, extra:''};
     if(!t.materials.items) t.materials.items = {};
-    t.materials.items[key] = !t.materials.items[key];
+    const curQty = getMaterialQty(t.materials, key);
+    t.materials.items[key] = curQty>0 ? 0 : 1;
+    saveTasksForSlot(slotId, tasks);
+  }
+  refreshTaskViews(slotId);
+}
+
+function setMaterialQty(slotId, taskId, key, val) {
+  const tasks = getTasksForSlot(slotId);
+  const t = tasks.find(x=>x.id===taskId);
+  if(t){
+    if(!t.materials) t.materials = {items:{}, extra:''};
+    if(!t.materials.items) t.materials.items = {};
+    const n = Math.max(1, Math.min(10, parseInt(val,10)||1));
+    t.materials.items[key] = n;
     saveTasksForSlot(slotId, tasks);
   }
   refreshTaskViews(slotId);
@@ -1785,10 +1816,7 @@ function renderMaterialsTaskRow(slotId, t) {
       </div>
     </div>
     <div class="materials-grid">`;
-  MATERIAL_ITEMS.forEach(m=>{
-    const checked = !!(mat.items||{})[m.key];
-    html += `<label class="mat-item"><input type="checkbox" ${checked?'checked':''} onchange="toggleMaterialItem('${slotId}','${t.id}','${m.key}')"> ${m.label}</label>`;
-  });
+  MATERIAL_ITEMS.forEach(m=>{ html += materialItemHtml(slotId, t.id, mat, m); });
   html += '</div>';
   html += `<textarea class="mat-extra" placeholder="Extra materiaal (vrije tekst)..." onchange="setMaterialExtra('${slotId}','${t.id}',this.value)">${esc(mat.extra||'')}</textarea>`;
   html += '</div>';
