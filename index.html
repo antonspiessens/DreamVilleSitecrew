@@ -239,6 +239,23 @@ td.cc.inactive { cursor: default; }
 .btn-icon:hover { color: var(--text); background: var(--border); }
 .empty-msg { text-align: center; color: var(--muted); font-size: 13px; padding: 22px 0; }
 
+/* Materiaalchecklist */
+.tc-matbadge { font-size: 10px; color: var(--muted); font-weight: 700; }
+.materials-toggle { margin-top: 6px; font-size: 11px; font-weight: 700; color: var(--muted); cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 4px; }
+.materials-toggle:hover { color: var(--text); }
+.mat-arrow { font-size: 9px; }
+.materials-panel { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.materials-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 6px 12px; margin-bottom: 8px; }
+.mat-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); cursor: pointer; }
+.mat-item input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+.mat-extra { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 7px 10px; font-size: 12px; font-family: inherit; outline: none; resize: vertical; min-height: 40px; }
+.mat-extra:focus { border-color: var(--accent); }
+.mat-extra::placeholder { color: var(--muted); }
+.mat-day-block { margin-bottom: 18px; }
+.mat-task { background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 10px 11px; margin-bottom: 8px; }
+.mat-task-head { margin-bottom: 8px; }
+.mat-task-head .tc-meta { margin-top: 4px; }
+
 /* ── MOBILE (telefoon/tablet) ── */
 @media (max-width: 860px) {
   .panel {
@@ -282,6 +299,7 @@ td.cc.inactive { cursor: default; }
     <button class="nav-item active" data-view="home" title="Home"><span class="ni-icon">🏠</span>Home</button>
     <button class="nav-item" data-view="crew" title="Crewplanning"><span class="ni-icon">📅</span>Planning</button>
     <button class="nav-item" data-view="tasks" title="Takenoverzicht"><span class="ni-icon">✅</span>Taken</button>
+    <button class="nav-item" data-view="materiaal" title="Materiaalchecklist"><span class="ni-icon">🧰</span>Materiaal</button>
     <button class="nav-item" data-view="freelancers" title="Freelancer-overzicht"><span class="ni-icon">👤</span>Freelance</button>
     <button class="nav-item" data-view="stats" title="Statistieken"><span class="ni-icon">📊</span>Stats</button>
     <button class="nav-item" data-view="notes" title="Notities"><span class="ni-icon">📝</span>Notities</button>
@@ -302,6 +320,7 @@ td.cc.inactive { cursor: default; }
       </div>
     </div>
     <div class="view-page" id="view-tasks"></div>
+    <div class="view-page" id="view-materiaal"></div>
     <div class="view-page" id="view-freelancers"></div>
     <div class="view-page" id="view-stats"></div>
     <div class="view-page" id="view-notes"></div>
@@ -1075,9 +1094,11 @@ function renderTaskItem(slotId, t) {
         ${teamHtml}
         <span class="tc-prio ${pCls}">${t.priority}</span>
         ${subtaskProgressHtml(t)}
+        ${materialsBadgeHtml(t)}
       </div>
       ${t.notes?`<div class="tc-notes">${esc(t.notes)}</div>`:''}
       ${renderSubtasksHtml(slotId, t)}
+      ${renderMaterialsHtml(slotId, t)}
     </div>
     <div class="tc-actions">
       <button class="btn-icon" onclick="editTask('${slotId}','${t.id}')" title="Bewerk">✎</button>
@@ -1085,6 +1106,22 @@ function renderTaskItem(slotId, t) {
     </div>
   </div>`;
 }
+
+// ── Materiaalchecklist ──
+const MATERIAL_ITEMS = [
+  { key:'gator',         label:'Gator' },
+  { key:'aanhanger',     label:'Aanhanger' },
+  { key:'fiets',         label:'Fiets' },
+  { key:'dubbelasser',   label:'Dubbel asser' },
+  { key:'kniptang',      label:'Kniptang' },
+  { key:'boulonneuse',   label:'Boulonneuse + dop 19' },
+  { key:'schroefmachine',label:'Schroefmachine + bits' },
+  { key:'nietmachine',   label:'Nietmachine' },
+  { key:'voorhamer',     label:'Voorhamer' },
+  { key:'walkie',        label:'Walkie' },
+  { key:'koelbox',       label:'Koelbox' },
+];
+let materialsOpenIds = new Set(); // taakIds waarvan materiaalpaneel open staat (UI state, niet opgeslagen)
 
 // ── Ploeg sitecrew toewijzing ──
 const TEAM_SECTIONS = [
@@ -1252,8 +1289,70 @@ function deleteSubtask(slotId, taskId, subId) {
 function refreshTaskViews(slotId) {
   if(currentView==='home'){ renderHomeView(); }
   else if(currentView==='tasks'){ renderTasksOverview(); }
+  else if(currentView==='materiaal'){ renderMaterialsOverview(); }
   else { renderPanelBody(slotId); }
   renderTableHeaders();
+}
+
+// ── Materiaalchecklist (per taak) ──
+function materialsCount(t) {
+  const mat = t.materials || {};
+  let n = Object.values(mat.items||{}).filter(Boolean).length;
+  if(mat.extra && mat.extra.trim()) n++;
+  return n;
+}
+
+function materialsBadgeHtml(t) {
+  const n = materialsCount(t);
+  if(n===0) return '';
+  return `<span class="tc-matbadge">🧰 ${n}</span>`;
+}
+
+function renderMaterialsHtml(slotId, t) {
+  const open = materialsOpenIds.has(t.id);
+  const mat = t.materials || {items:{}, extra:''};
+  const n = materialsCount(t);
+  let html = `<div class="materials-toggle" onclick="toggleMaterialsPanel('${slotId}','${t.id}')">🧰 Materiaal${n?` (${n})`:''} <span class="mat-arrow">${open?'▾':'▸'}</span></div>`;
+  if(open){
+    html += '<div class="materials-panel"><div class="materials-grid">';
+    MATERIAL_ITEMS.forEach(m=>{
+      const checked = !!(mat.items||{})[m.key];
+      html += `<label class="mat-item"><input type="checkbox" ${checked?'checked':''} onchange="toggleMaterialItem('${slotId}','${t.id}','${m.key}')"> ${m.label}</label>`;
+    });
+    html += '</div>';
+    html += `<textarea class="mat-extra" placeholder="Extra materiaal (vrije tekst)..." onchange="setMaterialExtra('${slotId}','${t.id}',this.value)">${esc(mat.extra||'')}</textarea>`;
+    html += '</div>';
+  }
+  return html;
+}
+
+function toggleMaterialsPanel(slotId, taskId) {
+  if(materialsOpenIds.has(taskId)) materialsOpenIds.delete(taskId);
+  else materialsOpenIds.add(taskId);
+  refreshTaskViews(slotId);
+}
+
+function toggleMaterialItem(slotId, taskId, key) {
+  const tasks = getTasksForSlot(slotId);
+  const t = tasks.find(x=>x.id===taskId);
+  if(t){
+    if(!t.materials) t.materials = {items:{}, extra:''};
+    if(!t.materials.items) t.materials.items = {};
+    t.materials.items[key] = !t.materials.items[key];
+    saveTasksForSlot(slotId, tasks);
+  }
+  refreshTaskViews(slotId);
+}
+
+function setMaterialExtra(slotId, taskId, val) {
+  const tasks = getTasksForSlot(slotId);
+  const t = tasks.find(x=>x.id===taskId);
+  if(t){
+    if(!t.materials) t.materials = {items:{}, extra:''};
+    t.materials.extra = val;
+    saveTasksForSlot(slotId, tasks);
+  }
+  refreshTaskViews(slotId);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1277,9 +1376,9 @@ function saveTask(slotId, taskId) {
   const tasks = getTasksForSlot(slotId);
   if(taskId){
     const t = tasks.find(x=>x.id===taskId);
-    if(t){ t.title=title; t.assignee=assignee; t.priority=priority; t.notes=notes; t.team=team; t.teamCount=teamCount; if(!t.subtasks) t.subtasks=[]; }
+    if(t){ t.title=title; t.assignee=assignee; t.priority=priority; t.notes=notes; t.team=team; t.teamCount=teamCount; if(!t.subtasks) t.subtasks=[]; if(!t.materials) t.materials={items:{},extra:''}; }
   } else {
-    tasks.push({id:Date.now().toString(),title,assignee,priority,notes,team,teamCount,done:false,subtasks:[]});
+    tasks.push({id:Date.now().toString(),title,assignee,priority,notes,team,teamCount,done:false,subtasks:[],materials:{items:{},extra:''}});
   }
   saveTasksForSlot(slotId, tasks);
   editingTaskId = null;
@@ -1350,6 +1449,7 @@ function switchView(view) {
   if(view==='home'){ renderHomeView(); }
   else if(view==='crew'){ renderTable(); }
   else if(view==='tasks'){ renderTasksOverview(); }
+  else if(view==='materiaal'){ renderMaterialsOverview(); }
   else if(view==='freelancers'){ renderFreelancersOverview(); }
   else if(view==='stats'){ renderStatsView(); }
   else if(view==='notes'){ renderNotesView(); }
@@ -1575,7 +1675,7 @@ function saveNewTask() {
   const teamCountRaw = document.getElementById('ntf-teamcount')?.value;
   const teamCount = (team && teamCountRaw!=='' && teamCountRaw!=null) ? Math.max(0, parseInt(teamCountRaw,10)||0) : null;
   const tasks = getTasksForSlot(slotId);
-  tasks.push({id:Date.now().toString(), title, assignee, priority, notes, team, teamCount, done:false, subtasks:[]});
+  tasks.push({id:Date.now().toString(), title, assignee, priority, notes, team, teamCount, done:false, subtasks:[], materials:{items:{},extra:''}});
   saveTasksForSlot(slotId, tasks);
   tvAddingTask = false;
   renderTasksOverview();
@@ -1601,15 +1701,71 @@ function renderTaskItemOverview(slotId, t) {
         ${teamHtml}
         <span class="tc-prio ${pCls}">${t.priority}</span>
         ${subtaskProgressHtml(t)}
+        ${materialsBadgeHtml(t)}
       </div>
       ${t.notes?`<div class="tc-notes">${esc(t.notes)}</div>`:''}
       ${renderSubtasksHtml(slotId, t)}
+      ${renderMaterialsHtml(slotId, t)}
     </div>
     <div class="tc-actions">
       <button class="btn-icon" onclick="goToSlot('${slotId}')" title="Open dag">↗</button>
       <button class="btn-icon" onclick="deleteTask('${slotId}','${t.id}')" title="Verwijder">✕</button>
     </div>
   </div>`;
+}
+
+// ── Materiaalchecklist-overzicht ──
+function renderMaterialsOverview() {
+  const all = loadTasks();
+  let html = '<h2>Materiaalchecklist</h2>';
+
+  const phases = [['opbouw','Opbouw'],['show','Show'],['afbouw','Afbouw']];
+  let any = false;
+  phases.forEach(([pkey,plabel])=>{
+    const slots = SCHEDULE.filter(s=>s.phase===pkey && (all[s.id]||[]).length>0);
+    if(slots.length===0) return;
+    any = true;
+    html += `<div class="sec-title"><h3>${plabel}</h3></div>`;
+    slots.forEach(s=>{
+      const tasks = all[s.id]||[];
+      html += `<div class="mat-day-block">
+        <div class="task-overview-day" onclick="goToSlot('${s.id}')">${s.label}${s.slot?' — '+s.slot:''} <span class="toh">↗ open in planning</span></div>`;
+      tasks.forEach(t=>{ html += renderMaterialsTaskRow(s.id, t); });
+      html += '</div>';
+    });
+  });
+  if(!any) html += '<div class="empty-msg">Nog geen taken aangemaakt.<br>Voeg taken toe via "Taken" of "Planning" — hier kan je per taak het materiaal aanvinken.</div>';
+  document.getElementById('view-materiaal').innerHTML = html;
+}
+
+function renderMaterialsTaskRow(slotId, t) {
+  const pCls = t.priority==='Hoog'?'hoog':t.priority==='Middel'?'middel':'laag';
+  const mat = t.materials || {items:{}, extra:''};
+  let teamHtml = '';
+  if(t.team){
+    const slot = SCHEDULE.find(s=>s.id===slotId);
+    const max = teamMaxForSlot(slot, t.team);
+    const cnt = (t.teamCount!=null && t.teamCount!=='') ? `${t.teamCount}${max?'/'+max:''}` : '';
+    teamHtml = `<span class="tc-team ${teamClsForLabel(t.team)}">🧩 ${esc(t.team)}${cnt?` (${cnt})`:''}</span>`;
+  }
+  let html = `<div class="mat-task" id="mat-${t.id}">
+    <div class="mat-task-head">
+      <div class="tc-title ${t.done?'done':''}">${esc(t.title)}</div>
+      <div class="tc-meta">
+        ${t.assignee?`<span class="tc-assignee">👤 ${esc(t.assignee)}</span>`:''}
+        ${teamHtml}
+        <span class="tc-prio ${pCls}">${t.priority}</span>
+      </div>
+    </div>
+    <div class="materials-grid">`;
+  MATERIAL_ITEMS.forEach(m=>{
+    const checked = !!(mat.items||{})[m.key];
+    html += `<label class="mat-item"><input type="checkbox" ${checked?'checked':''} onchange="toggleMaterialItem('${slotId}','${t.id}','${m.key}')"> ${m.label}</label>`;
+  });
+  html += '</div>';
+  html += `<textarea class="mat-extra" placeholder="Extra materiaal (vrije tekst)..." onchange="setMaterialExtra('${slotId}','${t.id}',this.value)">${esc(mat.extra||'')}</textarea>`;
+  html += '</div>';
+  return html;
 }
 
 // ── Freelancer-overzicht ──
