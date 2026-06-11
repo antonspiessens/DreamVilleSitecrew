@@ -97,6 +97,10 @@ header { flex-shrink: 0; background: var(--surface); border-bottom: 1px solid va
 .subcheck.done { background: var(--green); border-color: var(--green); color: #fff; }
 .subtitle { font-size: 12px; color: var(--text); flex: 1; }
 .subtitle.done { text-decoration: line-through; color: var(--muted); }
+.tc-matbadge { font-size: 10px; color: var(--muted); font-weight: 700; }
+.materials-ro { margin-top: 6px; font-size: 11px; color: var(--text); line-height: 1.5; padding-top: 6px; border-top: 1px dashed var(--border); }
+.materials-ro b { color: var(--muted); font-weight: 700; }
+.mat-ro-extra { margin-top: 2px; color: var(--muted); }
 .empty-msg { text-align: center; color: var(--muted); font-size: 13px; padding: 22px 0; }
 
 /* Takenoverzicht */
@@ -421,6 +425,55 @@ function applyOverrides() {
 }
 
 // ═══════════════════════════════════════════════════════
+// MATERIAAL (alleen-lezen)
+// ═══════════════════════════════════════════════════════
+const MATERIAL_ITEMS = [
+  { key:'gator',         label:'Gator' },
+  { key:'aanhanger',     label:'Aanhanger' },
+  { key:'fiets',         label:'Fiets' },
+  { key:'dubbelasser',   label:'Dubbel asser' },
+  { key:'kniptang',      label:'Kniptang' },
+  { key:'boulonneuse',   label:'Boulonneuse + dop 19' },
+  { key:'schroefmachine',label:'Schroefmachine + bits' },
+  { key:'nietmachine',   label:'Nietmachine' },
+  { key:'voorhamer',     label:'Voorhamer' },
+  { key:'walkie',        label:'Walkie' },
+  { key:'koelbox',       label:'Koelbox' },
+  { key:'manitou',       label:'Manitou' },
+  { key:'knikmops',      label:'Knikmops' },
+  { key:'schup',         label:'Schup' },
+];
+function getMaterialQty(mat, key) {
+  const v = (mat.items||{})[key];
+  if(v === true) return 1;
+  if(typeof v === 'number') return v;
+  return 0;
+}
+function materialsCount(t) {
+  const mat = t.materials || {};
+  let n = 0;
+  Object.keys(mat.items||{}).forEach(k=>{ if(getMaterialQty(mat,k)>0) n++; });
+  if(mat.extra && mat.extra.trim()) n++;
+  return n;
+}
+function materialsBadgeHtml(t) {
+  const n = materialsCount(t);
+  if(n===0) return '';
+  return `<span class="tc-matbadge">🧰 ${n}</span>`;
+}
+function renderMaterialsReadOnly(t) {
+  const mat = t.materials || {items:{}, extra:''};
+  const items = MATERIAL_ITEMS.filter(m=>getMaterialQty(mat,m.key)>0);
+  const extra = (mat.extra||'').trim();
+  if(items.length===0 && !extra) return '';
+  let html = '<div class="materials-ro"><b>🧰 Materiaal:</b> ';
+  html += items.map(m=>`${esc(m.label)} (${getMaterialQty(mat,m.key)}x)`).join(', ');
+  html += '</div>';
+  if(extra) html += `<div class="mat-ro-extra">Extra: ${esc(extra)}</div>`;
+  return html;
+}
+
+// ═══════════════════════════════════════════════════════
 // TAKEN (alleen-lezen)
 // ═══════════════════════════════════════════════════════
 function subtaskProgressHtml(t) {
@@ -461,9 +514,11 @@ function renderTaskItemReadOnly(slotId, t) {
         ${teamHtml}
         <span class="tc-prio ${pCls}">${t.priority}</span>
         ${subtaskProgressHtml(t)}
+        ${materialsBadgeHtml(t)}
       </div>
       ${t.notes?`<div class="tc-notes">${esc(t.notes)}</div>`:''}
       ${renderSubtasksReadOnly(t)}
+      ${renderMaterialsReadOnly(t)}
     </div>
   </div>`;
 }
