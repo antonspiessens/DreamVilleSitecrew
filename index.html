@@ -237,6 +237,7 @@ td.cc.inactive { cursor: default; }
     <button class="ptab af" data-phase="afbouw">Afbouw</button>
   </div>
   <button class="ptab" id="editModeBtn" onclick="toggleEditMode()" title="Klik op cellen om aanwezigheid/aantallen aan te passen">✏️ Bewerken</button>
+  <button class="ptab" id="exportBtn" onclick="exportBackup()" title="Download een back-up (JSON) van alle taken, notities en aanpassingen">⬇️ Backup</button>
   <span id="syncIndicator" style="font-size:11px;"></span>
   <div class="legend">
     <div class="li"><div class="ld" style="background:var(--ae)"></div> All Events</div>
@@ -550,6 +551,22 @@ function saveTasksForSlot(slotId, tasks) {
 // ── Notities ──
 function getNotes() { return APP_DATA.notes || ''; }
 function setNotes(v) { APP_DATA.notes = v; saveData(); }
+
+// ── Backup export ──
+// Downloadt alle taken, notities en aanwezigheid-aanpassingen als JSON-bestand.
+function exportBackup() {
+  const data = JSON.stringify(APP_DATA, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const ts   = new Date().toISOString().slice(0,16).replace(/[:T]/g,'-');
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `dv26-crewplanning-backup-${ts}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 // ── Aanwezigheid-overrides ──
 function setOverride(slotId, patch) {
