@@ -1122,6 +1122,7 @@ const MATERIAL_ITEMS = [
   { key:'koelbox',       label:'Koelbox' },
 ];
 let materialsOpenIds = new Set(); // taakIds waarvan materiaalpaneel open staat (UI state, niet opgeslagen)
+let materialsShowPast = false; // toon "Verleden"-sectie in materiaaloverzicht (UI state, niet opgeslagen)
 
 // ── Ploeg sitecrew toewijzing ──
 const TEAM_SECTIONS = [
@@ -1717,25 +1718,51 @@ function renderTaskItemOverview(slotId, t) {
 // ── Materiaalchecklist-overzicht ──
 function renderMaterialsOverview() {
   const all = loadTasks();
+  const todayStr = new Date().toISOString().slice(0,10);
   let html = '<h2>Materiaalchecklist</h2>';
+
+  const renderDayBlock = (s, tasks) => {
+    let h = `<div class="mat-day-block">
+        <div class="task-overview-day" onclick="goToSlot('${s.id}')">${s.label}${s.slot?' — '+s.slot:''} <span class="toh">↗ open in planning</span></div>`;
+    tasks.forEach(t=>{ h += renderMaterialsTaskRow(s.id, t); });
+    h += '</div>';
+    return h;
+  };
 
   const phases = [['opbouw','Opbouw'],['show','Show'],['afbouw','Afbouw']];
   let any = false;
+  let pastHtml = '';
+  let anyPast = false;
   phases.forEach(([pkey,plabel])=>{
     const slots = SCHEDULE.filter(s=>s.phase===pkey && (all[s.id]||[]).length>0);
     if(slots.length===0) return;
-    any = true;
-    html += `<div class="sec-title"><h3>${plabel}</h3></div>`;
-    slots.forEach(s=>{
-      const tasks = all[s.id]||[];
-      html += `<div class="mat-day-block">
-        <div class="task-overview-day" onclick="goToSlot('${s.id}')">${s.label}${s.slot?' — '+s.slot:''} <span class="toh">↗ open in planning</span></div>`;
-      tasks.forEach(t=>{ html += renderMaterialsTaskRow(s.id, t); });
-      html += '</div>';
-    });
+    const upcoming = slots.filter(s=>slotBaseDate(s.id)>=todayStr);
+    const past = slots.filter(s=>slotBaseDate(s.id)<todayStr);
+    if(upcoming.length>0){
+      any = true;
+      html += `<div class="sec-title"><h3>${plabel}</h3></div>`;
+      upcoming.forEach(s=>{ html += renderDayBlock(s, all[s.id]||[]); });
+    }
+    if(past.length>0){
+      anyPast = true;
+      pastHtml += `<div class="sec-title"><h3>${plabel}</h3></div>`;
+      past.forEach(s=>{ pastHtml += renderDayBlock(s, all[s.id]||[]); });
+    }
   });
+
+  if(anyPast){
+    any = true;
+    html += `<div class="materials-toggle" onclick="toggleMaterialsPast()">🕘 Verleden <span class="mat-arrow">${materialsShowPast?'▾':'▸'}</span></div>`;
+    if(materialsShowPast) html += `<div class="materials-panel">${pastHtml}</div>`;
+  }
+
   if(!any) html += '<div class="empty-msg">Nog geen taken aangemaakt.<br>Voeg taken toe via "Taken" of "Planning" — hier kan je per taak het materiaal aanvinken.</div>';
   document.getElementById('view-materiaal').innerHTML = html;
+}
+
+function toggleMaterialsPast() {
+  materialsShowPast = !materialsShowPast;
+  renderMaterialsOverview();
 }
 
 function renderMaterialsTaskRow(slotId, t) {
