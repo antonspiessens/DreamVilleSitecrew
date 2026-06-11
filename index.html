@@ -239,6 +239,17 @@ td.cc.inactive { cursor: default; }
 .btn-icon:hover { color: var(--text); background: var(--border); }
 .empty-msg { text-align: center; color: var(--muted); font-size: 13px; padding: 22px 0; }
 
+/* Kopieer-taak modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+.modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; max-width: 420px; width: 100%; max-height: 80vh; overflow-y: auto; }
+.modal-box h3 { font-size: 15px; font-weight: 800; margin-bottom: 10px; }
+.modal-day-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+.modal-phase-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 8px; margin-bottom: 2px; }
+.modal-phase-label:first-child { margin-top: 0; }
+.modal-day-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+.modal-day-item:hover { background: var(--surface2); }
+.modal-day-item input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+
 /* Materiaalchecklist */
 .tc-matbadge { font-size: 10px; color: var(--muted); font-weight: 700; }
 .materials-toggle { margin-top: 6px; font-size: 11px; font-weight: 700; color: var(--muted); cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 4px; }
@@ -1105,6 +1116,7 @@ function renderTaskItem(slotId, t) {
     </div>
     <div class="tc-actions">
       <button class="btn-icon" onclick="editTask('${slotId}','${t.id}')" title="Bewerk">✎</button>
+      <button class="btn-icon" onclick="openCopyTaskModal('${slotId}','${t.id}')" title="Kopieer naar andere dagen">📅</button>
       <button class="btn-icon" onclick="deleteTask('${slotId}','${t.id}')" title="Verwijder">✕</button>
     </div>
   </div>`;
@@ -1448,6 +1460,73 @@ function deleteTask(slotId, taskId) {
   renderTableHeaders();
 }
 
+// ── Taak kopiëren naar andere dagen ──
+let copyTaskCtx = null; // { slotId, taskId }
+
+function openCopyTaskModal(slotId, taskId) {
+  const tasks = getTasksForSlot(slotId);
+  const t = tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  copyTaskCtx = { slotId, taskId };
+
+  const phases = [['opbouw','Opbouw'],['show','Show'],['afbouw','Afbouw']];
+  let html = `<div class="modal-overlay" id="copyTaskModal" onclick="if(event.target===this) closeCopyTaskModal()">
+    <div class="modal-box">
+      <h3>📅 "${esc(t.title)}" kopiëren naar...</h3>
+      <div class="modal-day-list">`;
+  phases.forEach(([pkey,plabel])=>{
+    const slots = SCHEDULE.filter(s=>s.phase===pkey);
+    if(slots.length===0) return;
+    html += `<div class="modal-phase-label">${plabel}</div>`;
+    slots.forEach(s=>{
+      if(s.id===slotId) return;
+      html += `<label class="modal-day-item"><input type="checkbox" value="${s.id}"> ${s.label}${s.slot?' — '+s.slot:''}</label>`;
+    });
+  });
+  html += `</div>
+      <div class="form-btns">
+        <button class="btn-primary" onclick="confirmCopyTask()">Kopieer</button>
+        <button class="btn-sec" onclick="closeCopyTaskModal()">Annuleer</button>
+      </div>
+    </div>
+  </div>`;
+
+  const div = document.createElement('div');
+  div.id = 'copyTaskModalWrap';
+  div.innerHTML = html;
+  document.body.appendChild(div);
+}
+
+function closeCopyTaskModal() {
+  document.getElementById('copyTaskModalWrap')?.remove();
+  copyTaskCtx = null;
+}
+
+function confirmCopyTask() {
+  if(!copyTaskCtx) return;
+  const { slotId, taskId } = copyTaskCtx;
+  const tasks = getTasksForSlot(slotId);
+  const t = tasks.find(x=>x.id===taskId);
+  if(!t){ closeCopyTaskModal(); return; }
+
+  const checked = [...document.querySelectorAll('#copyTaskModalWrap input[type=checkbox]:checked')].map(cb=>cb.value);
+  if(checked.length===0){ closeCopyTaskModal(); return; }
+
+  checked.forEach(targetSlotId=>{
+    const targetTasks = getTasksForSlot(targetSlotId);
+    const newTask = JSON.parse(JSON.stringify(t));
+    newTask.id = Date.now().toString() + Math.random().toString(36).slice(2,7);
+    newTask.done = false;
+    (newTask.subtasks||[]).forEach(s=>{ s.id = Date.now().toString() + Math.random().toString(36).slice(2,7); s.done = false; });
+    targetTasks.push(newTask);
+    saveTasksForSlot(targetSlotId, targetTasks);
+  });
+
+  closeCopyTaskModal();
+  refreshTaskViews(slotId);
+  alert(`Taak gekopieerd naar ${checked.length} dag${checked.length===1?'':'en'}.`);
+}
+
 // Only re-render headers (for badge updates without full redraw)
 function renderTableHeaders() {
   updateStats();
@@ -1742,6 +1821,7 @@ function renderTaskItemOverview(slotId, t) {
     </div>
     <div class="tc-actions">
       <button class="btn-icon" onclick="goToSlot('${slotId}')" title="Open dag">↗</button>
+      <button class="btn-icon" onclick="openCopyTaskModal('${slotId}','${t.id}')" title="Kopieer naar andere dagen">📅</button>
       <button class="btn-icon" onclick="deleteTask('${slotId}','${t.id}')" title="Verwijder">✕</button>
     </div>
   </div>`;
