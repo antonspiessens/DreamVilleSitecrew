@@ -31,6 +31,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 header { flex-shrink: 0; background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 18px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .logo { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; white-space: nowrap; }
 .logo span { color: var(--accent); }
+.countdown { padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; background: rgba(255,213,80,.12); color: var(--yellow); border: 1px solid rgba(255,213,80,.25); }
+.countdown.live { background: rgba(76,175,80,.15); color: var(--green); border-color: rgba(76,175,80,.3); }
+.countdown.past { background: rgba(100,100,120,.1); color: var(--muted); border-color: var(--border); }
 .phase-tabs { display: flex; gap: 4px; }
 .ptab { padding: 5px 13px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; border: none; background: var(--surface2); color: var(--muted); transition: all 0.15s; letter-spacing: 0.03em; }
 .ptab.op.active { background: rgba(66,165,245,.2); color: var(--ae); }
@@ -84,6 +87,15 @@ body.edit-mode td.cc:not(.sec):hover { outline: 2px dashed var(--yellow); outlin
 .stat-card .sc-row { font-size: 12px; line-height: 2; }
 
 /* ── HOME DASHBOARD ── */
+.hours-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
+.hours-title { font-size: 14px; font-weight: 800; margin-bottom: 10px; }
+.hours-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 10px; margin-bottom: 10px; }
+.hours-item { background: var(--bg); border: 1px solid var(--border); border-left-width: 3px; border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+.hours-item.ae { border-left-color: var(--ae); }
+.hours-item.rw { border-left-color: var(--rw); }
+.hours-item.tw { border-left-color: var(--tw); }
+.hours-item b { display: block; font-size: 12px; color: var(--muted); margin-bottom: 2px; font-weight: 700; }
+.hours-note { font-size: 12px; color: var(--muted); line-height: 1.6; }
 .home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); gap: 16px; align-items: start; }
 .home-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
 .home-card-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
@@ -203,7 +215,25 @@ td.cc.inactive { cursor: default; }
 .tc-prio.hoog { background: rgba(239,83,80,.2); color: #ef5350; }
 .tc-prio.middel { background: rgba(255,167,38,.2); color: #ffa726; }
 .tc-prio.laag { background: rgba(76,175,80,.2); color: #4caf50; }
+.tc-team { font-size: 10px; padding: 1px 7px; border-radius: 8px; font-weight: 700; }
+.tc-team.ae { background: rgba(66,165,245,.2); color: var(--ae); }
+.tc-team.rw { background: rgba(239,83,80,.2); color: var(--rw); }
+.tc-team.tw { background: rgba(255,167,38,.2); color: var(--tw); }
 .tc-notes { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+.tc-subprogress { font-size: 10px; color: var(--muted); font-weight: 700; }
+.subtasks { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; padding-left: 2px; }
+.subitem { display: flex; align-items: center; gap: 7px; }
+.subcheck { width: 14px; height: 14px; min-width: 14px; border-radius: 4px; border: 2px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 9px; transition: all .15s; }
+.subcheck.done { background: var(--green); border-color: var(--green); color: #fff; }
+.subtitle { font-size: 12px; color: var(--text); flex: 1; }
+.subtitle.done { text-decoration: line-through; color: var(--muted); }
+.sub-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 11px; padding: 2px 4px; border-radius: 4px; line-height: 1; }
+.sub-del:hover { color: var(--text); background: var(--border); }
+.sub-add-row { display: flex; gap: 6px; margin-top: 2px; }
+.sub-add-row input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; color: var(--text); padding: 4px 8px; font-size: 12px; font-family: inherit; outline: none; }
+.sub-add-row input:focus { border-color: var(--accent); }
+.sub-add-row button { background: none; border: 1px solid var(--border); border-radius: 5px; color: var(--muted); cursor: pointer; font-size: 12px; padding: 4px 9px; font-weight: 700; }
+.sub-add-row button:hover { color: var(--text); border-color: var(--accent); }
 .tc-actions { display: flex; flex-direction: column; gap: 3px; }
 .btn-icon { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 3px 5px; border-radius: 4px; line-height: 1; }
 .btn-icon:hover { color: var(--text); background: var(--border); }
@@ -231,6 +261,7 @@ td.cc.inactive { cursor: default; }
 <body>
 <header>
   <div class="logo">DreamVille <span>2026</span> — Crewplanning</div>
+  <span id="openingCountdown" class="countdown"></span>
   <div class="phase-tabs" id="phaseTabs">
     <button class="ptab op" data-phase="opbouw">Opbouw</button>
     <button class="ptab sh" data-phase="show">Show</button>
@@ -1027,6 +1058,13 @@ function renderPanelBody(slotId) {
 
 function renderTaskItem(slotId, t) {
   const pCls = t.priority==='Hoog'?'hoog':t.priority==='Middel'?'middel':'laag';
+  let teamHtml = '';
+  if(t.team){
+    const slot = SCHEDULE.find(s=>s.id===slotId);
+    const max = teamMaxForSlot(slot, t.team);
+    const cnt = (t.teamCount!=null && t.teamCount!=='') ? `${t.teamCount}${max?'/'+max:''}` : '';
+    teamHtml = `<span class="tc-team ${teamClsForLabel(t.team)}">🧩 ${esc(t.team)}${cnt?` (${cnt})`:''}</span>`;
+  }
   return `
   <div class="titem" id="ti-${t.id}">
     <div class="tcheck ${t.done?'done':''}" onclick="toggleTask('${slotId}','${t.id}')">${t.done?'✓':''}</div>
@@ -1034,15 +1072,72 @@ function renderTaskItem(slotId, t) {
       <div class="tc-title ${t.done?'done':''}">${esc(t.title)}</div>
       <div class="tc-meta">
         ${t.assignee?`<span class="tc-assignee">👤 ${esc(t.assignee)}</span>`:''}
+        ${teamHtml}
         <span class="tc-prio ${pCls}">${t.priority}</span>
+        ${subtaskProgressHtml(t)}
       </div>
       ${t.notes?`<div class="tc-notes">${esc(t.notes)}</div>`:''}
+      ${renderSubtasksHtml(slotId, t)}
     </div>
     <div class="tc-actions">
       <button class="btn-icon" onclick="editTask('${slotId}','${t.id}')" title="Bewerk">✎</button>
       <button class="btn-icon" onclick="deleteTask('${slotId}','${t.id}')" title="Verwijder">✕</button>
     </div>
   </div>`;
+}
+
+// ── Ploeg sitecrew toewijzing ──
+const TEAM_SECTIONS = [
+  { key:'ae', label:'All Events', cls:'ae' },
+  { key:'rw', label:'Radarwerk',  cls:'rw' },
+  { key:'tw', label:'Team Wauw',  cls:'tw' },
+];
+
+function teamMaxForSlot(slot, teamLabel) {
+  if(!slot) return 0;
+  if(teamLabel==='All Events' && slot.ae) return 1 + (slot.ae.sh||0);
+  if(teamLabel==='Radarwerk' && slot.rw) return 1 + (slot.rw.arc||0);
+  if(teamLabel==='Team Wauw' && slot.tw) return (slot.tw.pro||0)+(slot.tw.senior||0)+(slot.tw.junior||0);
+  return 0;
+}
+
+function teamClsForLabel(teamLabel) {
+  const sec = TEAM_SECTIONS.find(s=>s.label===teamLabel);
+  return sec ? sec.cls : '';
+}
+
+function teamOptionsHtml(slot, currentTeam) {
+  let opts = `<option value="">— Geen ploeg —</option>`;
+  TEAM_SECTIONS.forEach(sec=>{
+    if(slot && slot[sec.key]) opts += `<option value="${sec.label}" ${currentTeam===sec.label?'selected':''}>${sec.label}</option>`;
+  });
+  return opts;
+}
+
+function teamCountInputHtml(idPrefix, slot, currentTeam, currentCount) {
+  const max = currentTeam ? teamMaxForSlot(slot, currentTeam) : 0;
+  const disabled = currentTeam ? '' : 'disabled';
+  const placeholder = currentTeam ? `bv. 4 (max ${max})` : '';
+  const maxAttr = currentTeam ? `max="${max}"` : '';
+  return `<input type="number" id="${idPrefix}-teamcount" min="0" ${maxAttr} ${disabled} value="${currentCount??''}" placeholder="${placeholder}" />`;
+}
+
+function onTeamSelectChange(selectEl, slotId, idPrefix) {
+  const slot = SCHEDULE.find(s=>s.id===slotId);
+  const countInput = document.getElementById(`${idPrefix}-teamcount`);
+  if(!countInput) return;
+  const team = selectEl.value;
+  if(team){
+    const max = teamMaxForSlot(slot, team);
+    countInput.disabled = false;
+    countInput.max = max;
+    countInput.placeholder = `bv. 4 (max ${max})`;
+    if(countInput.value && parseInt(countInput.value,10) > max) countInput.value = max;
+  } else {
+    countInput.disabled = true;
+    countInput.value = '';
+    countInput.placeholder = '';
+  }
 }
 
 function assigneeOptionsHtml(slot, currentAssignee) {
@@ -1059,6 +1154,8 @@ function assigneeOptionsHtml(slot, currentAssignee) {
 function renderTaskForm(slotId, slot, task) {
   const isNew = !task;
   const assigneeOpts = assigneeOptionsHtml(slot, task?.assignee);
+  const teamOpts = teamOptionsHtml(slot, task?.team);
+  const teamCountInput = teamCountInputHtml('tf', slot, task?.team, task?.teamCount);
 
   return `
   <div class="tform">
@@ -1078,6 +1175,16 @@ function renderTaskForm(slotId, slot, task) {
         </select>
       </div>
     </div>
+    <div class="tform-row">
+      <div>
+        <label>Ploeg sitecrew</label>
+        <select id="tf-team" onchange="onTeamSelectChange(this,'${slotId}','tf')">${teamOpts}</select>
+      </div>
+      <div>
+        <label>Aantal crew</label>
+        ${teamCountInput}
+      </div>
+    </div>
     <label>Notities</label>
     <textarea id="tf-notes" placeholder="Extra info...">${esc(task?.notes||'')}</textarea>
     <div class="form-btns">
@@ -1088,6 +1195,66 @@ function renderTaskForm(slotId, slot, task) {
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── Subtaken ──
+function renderSubtasksHtml(slotId, t) {
+  const subs = t.subtasks||[];
+  let html = '<div class="subtasks">';
+  subs.forEach(s=>{
+    html += `<div class="subitem">
+      <div class="subcheck ${s.done?'done':''}" onclick="toggleSubtask('${slotId}','${t.id}','${s.id}')">${s.done?'✓':''}</div>
+      <div class="subtitle ${s.done?'done':''}">${esc(s.title)}</div>
+      <button class="sub-del" onclick="deleteSubtask('${slotId}','${t.id}','${s.id}')" title="Verwijder subtaak">✕</button>
+    </div>`;
+  });
+  html += `<div class="sub-add-row">
+    <input type="text" placeholder="+ subtaak toevoegen..." onkeydown="if(event.key==='Enter'){event.preventDefault();addSubtask('${slotId}','${t.id}',this.value);this.value='';}" />
+    <button onclick="addSubtask('${slotId}','${t.id}',this.previousElementSibling.value);this.previousElementSibling.value='';">+</button>
+  </div></div>`;
+  return html;
+}
+
+function subtaskProgressHtml(t) {
+  const subs = t.subtasks||[];
+  if(subs.length===0) return '';
+  const done = subs.filter(s=>s.done).length;
+  return `<span class="tc-subprogress">${done}/${subs.length} subtaken</span>`;
+}
+
+function toggleSubtask(slotId, taskId, subId) {
+  const tasks = getTasksForSlot(slotId);
+  const t = tasks.find(x=>x.id===taskId);
+  const sub = t && (t.subtasks||[]).find(s=>s.id===subId);
+  if(sub){ sub.done = !sub.done; saveTasksForSlot(slotId, tasks); }
+  refreshTaskViews(slotId);
+}
+
+function addSubtask(slotId, taskId, title) {
+  title = (title||'').trim();
+  if(!title) return;
+  const tasks = getTasksForSlot(slotId);
+  const t = tasks.find(x=>x.id===taskId);
+  if(t){
+    if(!t.subtasks) t.subtasks = [];
+    t.subtasks.push({id:Date.now().toString(), title, done:false});
+    saveTasksForSlot(slotId, tasks);
+  }
+  refreshTaskViews(slotId);
+}
+
+function deleteSubtask(slotId, taskId, subId) {
+  const tasks = getTasksForSlot(slotId);
+  const t = tasks.find(x=>x.id===taskId);
+  if(t){ t.subtasks = (t.subtasks||[]).filter(s=>s.id!==subId); saveTasksForSlot(slotId, tasks); }
+  refreshTaskViews(slotId);
+}
+
+function refreshTaskViews(slotId) {
+  if(currentView==='home'){ renderHomeView(); }
+  else if(currentView==='tasks'){ renderTasksOverview(); }
+  else { renderPanelBody(slotId); }
+  renderTableHeaders();
+}
 
 // ═══════════════════════════════════════════════════════
 // TASK ACTIONS
@@ -1104,12 +1271,15 @@ function saveTask(slotId, taskId) {
   const assignee = document.getElementById('tf-assignee')?.value||'';
   const priority = document.getElementById('tf-prio')?.value||'Middel';
   const notes = document.getElementById('tf-notes')?.value?.trim()||'';
+  const team = document.getElementById('tf-team')?.value||'';
+  const teamCountRaw = document.getElementById('tf-teamcount')?.value;
+  const teamCount = (team && teamCountRaw!=='' && teamCountRaw!=null) ? Math.max(0, parseInt(teamCountRaw,10)||0) : null;
   const tasks = getTasksForSlot(slotId);
   if(taskId){
     const t = tasks.find(x=>x.id===taskId);
-    if(t){ t.title=title; t.assignee=assignee; t.priority=priority; t.notes=notes; }
+    if(t){ t.title=title; t.assignee=assignee; t.priority=priority; t.notes=notes; t.team=team; t.teamCount=teamCount; if(!t.subtasks) t.subtasks=[]; }
   } else {
-    tasks.push({id:Date.now().toString(),title,assignee,priority,notes,done:false});
+    tasks.push({id:Date.now().toString(),title,assignee,priority,notes,team,teamCount,done:false,subtasks:[]});
   }
   saveTasksForSlot(slotId, tasks);
   editingTaskId = null;
@@ -1204,12 +1374,27 @@ function renderHomeView() {
   const tomorrowStr = tomorrow.toISOString().slice(0,10);
   const dayAfterStr = dayAfter.toISOString().slice(0,10);
 
-  let html = '<h2>Vandaag, morgen &amp; overmorgen</h2><div class="home-grid">';
+  let html = renderWorkingHoursCard();
+  html += '<h2>Vandaag, morgen &amp; overmorgen</h2><div class="home-grid">';
   html += renderHomeDayCard('Vandaag', todayStr);
   html += renderHomeDayCard('Morgen', tomorrowStr);
   html += renderHomeDayCard('Overmorgen', dayAfterStr);
   html += '</div>';
   document.getElementById('view-home').innerHTML = html;
+}
+
+function renderWorkingHoursCard() {
+  return `<div class="hours-card">
+    <div class="hours-title">⏰ Werktijden</div>
+    <div class="hours-grid">
+      <div class="hours-item ae"><b>All Eventz &amp; Radar</b>08u00 – 17u30</div>
+      <div class="hours-item tw"><b>Team Wauw</b>08u30 – 18u00</div>
+    </div>
+    <div class="hours-note">
+      Alle ploegen stoppen een halfuur voor het einduur met werken op het veld om op te ruimen.<br>
+      Een kwartier voor het einduur vertrekken ze naar het machinepark om op tijd uit te schrijven.
+    </div>
+  </div>`;
 }
 
 function fmtHomeDate(dateStr) {
@@ -1336,6 +1521,16 @@ function renderNewTaskForm() {
         </select>
       </div>
     </div>
+    <div class="tform-row">
+      <div>
+        <label>Ploeg sitecrew</label>
+        <select id="ntf-team" onchange="onTeamSelectChange(this,'${tvNewTaskDay}','ntf')">${teamOptionsHtml(slot)}</select>
+      </div>
+      <div>
+        <label>Aantal crew</label>
+        ${teamCountInputHtml('ntf', slot, '', null)}
+      </div>
+    </div>
     <label>Notities</label>
     <textarea id="ntf-notes" placeholder="Extra info..."></textarea>
     <div class="form-btns">
@@ -1348,8 +1543,14 @@ function renderNewTaskForm() {
 function onNewTaskDayChange(val) {
   tvNewTaskDay = val;
   const slot = SCHEDULE.find(s=>s.id===val);
-  const sel = document.getElementById('ntf-assignee');
-  if(sel && slot) sel.innerHTML = assigneeOptionsHtml(slot);
+  const aSel = document.getElementById('ntf-assignee');
+  if(aSel && slot) aSel.innerHTML = assigneeOptionsHtml(slot);
+  const tSel = document.getElementById('ntf-team');
+  if(tSel && slot){
+    tSel.innerHTML = teamOptionsHtml(slot);
+    tSel.setAttribute('onchange', `onTeamSelectChange(this,'${val}','ntf')`);
+    onTeamSelectChange(tSel, val, 'ntf');
+  }
 }
 
 function showNewTaskForm(slotId) {
@@ -1370,8 +1571,11 @@ function saveNewTask() {
   const assignee = document.getElementById('ntf-assignee')?.value || '';
   const priority = document.getElementById('ntf-prio')?.value || 'Middel';
   const notes = document.getElementById('ntf-notes')?.value?.trim() || '';
+  const team = document.getElementById('ntf-team')?.value || '';
+  const teamCountRaw = document.getElementById('ntf-teamcount')?.value;
+  const teamCount = (team && teamCountRaw!=='' && teamCountRaw!=null) ? Math.max(0, parseInt(teamCountRaw,10)||0) : null;
   const tasks = getTasksForSlot(slotId);
-  tasks.push({id:Date.now().toString(), title, assignee, priority, notes, done:false});
+  tasks.push({id:Date.now().toString(), title, assignee, priority, notes, team, teamCount, done:false, subtasks:[]});
   saveTasksForSlot(slotId, tasks);
   tvAddingTask = false;
   renderTasksOverview();
@@ -1380,6 +1584,13 @@ function saveNewTask() {
 
 function renderTaskItemOverview(slotId, t) {
   const pCls = t.priority==='Hoog'?'hoog':t.priority==='Middel'?'middel':'laag';
+  let teamHtml = '';
+  if(t.team){
+    const slot = SCHEDULE.find(s=>s.id===slotId);
+    const max = teamMaxForSlot(slot, t.team);
+    const cnt = (t.teamCount!=null && t.teamCount!=='') ? `${t.teamCount}${max?'/'+max:''}` : '';
+    teamHtml = `<span class="tc-team ${teamClsForLabel(t.team)}">🧩 ${esc(t.team)}${cnt?` (${cnt})`:''}</span>`;
+  }
   return `
   <div class="titem" id="ti-${t.id}">
     <div class="tcheck ${t.done?'done':''}" onclick="toggleTask('${slotId}','${t.id}')">${t.done?'✓':''}</div>
@@ -1387,9 +1598,12 @@ function renderTaskItemOverview(slotId, t) {
       <div class="tc-title ${t.done?'done':''}">${esc(t.title)}</div>
       <div class="tc-meta">
         ${t.assignee?`<span class="tc-assignee">👤 ${esc(t.assignee)}</span>`:''}
+        ${teamHtml}
         <span class="tc-prio ${pCls}">${t.priority}</span>
+        ${subtaskProgressHtml(t)}
       </div>
       ${t.notes?`<div class="tc-notes">${esc(t.notes)}</div>`:''}
+      ${renderSubtasksHtml(slotId, t)}
     </div>
     <div class="tc-actions">
       <button class="btn-icon" onclick="goToSlot('${slotId}')" title="Open dag">↗</button>
@@ -1497,6 +1711,37 @@ document.querySelectorAll('.ptab[data-phase]').forEach(btn=>{
 });
 
 // ═══════════════════════════════════════════════════════
+// COUNTDOWN TOT OPENING
+// ═══════════════════════════════════════════════════════
+// Openingsdag = 16/07/2026 (uit Excel/PDF: "Days before opening" telt af naar 0 op 16/jul)
+const OPENING_DATE = new Date(2026, 6, 16);
+const CLOSING_DATE = new Date(2026, 6, 26); // laatste showdag
+
+function renderOpeningCountdown(){
+  const el = document.getElementById('openingCountdown');
+  if(!el) return;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round((OPENING_DATE - today) / 86400000);
+
+  let cls = 'countdown', text;
+  if(diffDays > 0){
+    text = `🎪 Nog ${diffDays} dag${diffDays===1?'':'en'} tot opening`;
+  } else if(diffDays === 0){
+    cls += ' live';
+    text = `🎪 Opening vandaag!`;
+  } else if(today <= CLOSING_DATE){
+    cls += ' live';
+    text = `🎉 Festival bezig — dag ${diffDays*-1+1}`;
+  } else {
+    cls += ' past';
+    text = `✓ Opening was ${diffDays*-1} dagen geleden`;
+  }
+  el.className = cls;
+  el.textContent = text;
+}
+
+// ═══════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════
 // Auto-select phase based on today
@@ -1518,6 +1763,7 @@ else { document.querySelector('.ptab.op').classList.add('active'); }
 applyOverrides();
 renderTable();
 renderHomeView();
+renderOpeningCountdown();
 setSyncStatus(syncStatus);
 
 // Scroll to today on load
