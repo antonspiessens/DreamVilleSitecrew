@@ -257,6 +257,7 @@ td.cc.inactive { cursor: default; }
 .mat-task { background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 10px 11px; margin-bottom: 8px; }
 .mat-task-head { margin-bottom: 8px; }
 .mat-task-head .tc-meta { margin-top: 4px; }
+.mat-copy-btn { border: 1px solid var(--border); font-weight: 700; white-space: nowrap; flex-shrink: 0; }
 
 /* ── MOBILE (telefoon/tablet) ── */
 @media (max-width: 860px) {
@@ -1754,7 +1755,10 @@ function renderMaterialsOverview() {
 
   const renderDayBlock = (s, tasks) => {
     let h = `<div class="mat-day-block">
-        <div class="task-overview-day" onclick="goToSlot('${s.id}')">${s.label}${s.slot?' — '+s.slot:''} <span class="toh">↗ open in planning</span></div>`;
+        <div class="task-overview-day-row">
+          <div class="task-overview-day" onclick="goToSlot('${s.id}')">${s.label}${s.slot?' — '+s.slot:''} <span class="toh">↗ open in planning</span></div>
+          <button class="btn-icon mat-copy-btn" onclick="copyMaterialsForDay('${s.id}', this)" title="Kopieer materiaallijst naar klembord">📋 Kopieer</button>
+        </div>`;
     tasks.forEach(t=>{ h += renderMaterialsTaskRow(s.id, t); });
     h += '</div>';
     return h;
@@ -1794,6 +1798,72 @@ function renderMaterialsOverview() {
 function toggleMaterialsPast() {
   materialsShowPast = !materialsShowPast;
   renderMaterialsOverview();
+}
+
+// ── Materiaallijst per dag kopiëren ──
+function buildMaterialsTextForDay(slotId) {
+  const slot = SCHEDULE.find(s=>s.id===slotId);
+  const tasks = getTasksForSlot(slotId);
+  const totals = {};
+  const extras = [];
+  tasks.forEach(t=>{
+    const mat = t.materials || {items:{}, extra:''};
+    MATERIAL_ITEMS.forEach(m=>{
+      const qty = getMaterialQty(mat, m.key);
+      if(qty>0) totals[m.key] = (totals[m.key]||0) + qty;
+    });
+    if(mat.extra && mat.extra.trim()) extras.push({ text: mat.extra.trim(), task: t.title });
+  });
+
+  const lines = [];
+  if(slot){
+    const dateLabel = fmtHomeDate(slotBaseDate(slot.id));
+    lines.push(`🧰 Materiaal — ${dateLabel} — ${slot.label}${slot.slot?' ('+slot.slot+')':''}`);
+
+    // Aantal crew per ploeg
+    const crewParts = [];
+    let crewTotal = 0;
+    if(slot.ae){ const n=1+(slot.ae.sh||0); crewParts.push(`All Events ${n}`); crewTotal+=n; }
+    if(slot.rw){ const n=1+(slot.rw.arc||0); crewParts.push(`Radarwerk ${n}`); crewTotal+=n; }
+    if(slot.tw){ const n=(slot.tw.pro||0)+(slot.tw.senior||0)+(slot.tw.junior||0); crewParts.push(`Team Wauw ${n}`); crewTotal+=n; }
+    if(crewParts.length) lines.push(`👥 Crew: ${crewParts.join(' · ')} (totaal ${crewTotal})`);
+
+    // Freelancers aanwezig
+    const fl = slot.fl || {};
+    const flNames = FREELANCERS.filter(f=>fl[f.key]===1||fl[f.key]===-1).map(f=> fl[f.key]===-1 ? `${f.name} (optie)` : f.name);
+    if(flNames.length) lines.push(`👤 Freelancers: ${flNames.join(', ')}`);
+  } else {
+    lines.push(`🧰 Materiaal — ${slotId}`);
+  }
+
+  lines.push('');
+  const itemLines = MATERIAL_ITEMS.filter(m=>totals[m.key]>0).map(m=>`- ${m.label}: ${totals[m.key]}x`);
+  if(itemLines.length===0 && extras.length===0){
+    lines.push('(geen materiaal aangevinkt)');
+  } else {
+    itemLines.forEach(l=>lines.push(l));
+  }
+  if(extras.length>0){
+    lines.push('');
+    lines.push('Extra:');
+    extras.forEach(e=>lines.push(`- ${e.text} (${e.task})`));
+  }
+  return lines.join('\n');
+}
+
+function copyMaterialsForDay(slotId, btnEl) {
+  const text = buildMaterialsTextForDay(slotId);
+  const done = (ok)=>{
+    if(!btnEl) return;
+    const orig = btnEl.textContent;
+    btnEl.textContent = ok ? '✓ Gekopieerd!' : '⚠ Kopiëren mislukt';
+    setTimeout(()=>{ btnEl.textContent = orig; }, 1500);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>done(true)).catch(()=>done(false));
+  } else {
+    done(false);
+  }
 }
 
 function renderMaterialsTaskRow(slotId, t) {
