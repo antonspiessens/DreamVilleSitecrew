@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DreamVille 2026 — Crewplanning (weergave)</title>
+<style>
+:root {
+  --bg: #0d0f18;
+  --surface: #161926;
+  --surface2: #1e2235;
+  --border: #2a2f47;
+  --text: #e4e8f5;
+  --muted: #7a84a8;
+  --accent: #6c63ff;
+  --ae: #42a5f5;
+  --rw: #ef5350;
+  --tw: #ffa726;
+  --fl: #ab47bc;
+  --green: #4caf50;
+  --yellow: #ffd54f;
+  --ph-opbouw: #42a5f5;
+  --ph-show: #ff6b35;
+  --ph-afbouw: #4caf50;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; height: 100dvh; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; min-height: 100dvh; }
+
+/* ── HEADER ── */
+header { flex-shrink: 0; background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 18px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.logo { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; white-space: nowrap; }
+.logo span { color: var(--accent); }
+.viewbadge { padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; background: rgba(108,99,255,.15); color: var(--accent); border: 1px solid rgba(108,99,255,.3); }
+.countdown { padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; background: rgba(255,213,80,.12); color: var(--yellow); border: 1px solid rgba(255,213,80,.25); }
+.countdown.live { background: rgba(76,175,80,.15); color: var(--green); border-color: rgba(76,175,80,.3); }
+.countdown.past { background: rgba(100,100,120,.1); color: var(--muted); border-color: var(--border); }
+.phase-tabs { display: flex; gap: 4px; }
+.ptab { padding: 5px 13px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; border: none; background: var(--surface2); color: var(--muted); transition: all 0.15s; letter-spacing: 0.03em; font-family: inherit; }
+.ptab.op.active { background: rgba(66,165,245,.2); color: var(--ae); }
+.ptab.sh.active { background: rgba(255,107,53,.2); color: var(--ph-show); }
+.ptab.af.active { background: rgba(76,175,80,.2); color: var(--green); }
+.ptab.tk.active { background: rgba(108,99,255,.2); color: var(--accent); }
+.view-tabs { display: flex; gap: 4px; padding-left: 10px; margin-left: 6px; border-left: 1px solid var(--border); }
+.legend { margin-left: auto; display: flex; gap: 14px; flex-wrap: wrap; }
+.li { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.ld { width: 9px; height: 9px; border-radius: 50%; }
+#syncIndicator { font-size: 11px; }
+
+/* ── CONTENT ── */
+.content-area { flex: 1; overflow-y: auto; padding: 20px; }
+.content-area h2 { margin-bottom: 14px; font-size: 18px; font-weight: 800; }
+
+/* ── DAY CARDS ── */
+.home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); gap: 16px; align-items: start; }
+.home-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.home-card.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.home-card-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); gap: 8px; }
+.home-card-title { font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 7px; }
+.home-card-date { font-size: 12px; color: var(--muted); }
+.today-pill { font-size: 9px; font-weight: 800; padding: 1px 7px; border-radius: 8px; background: rgba(108,99,255,.2); color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; }
+.home-slot { margin-bottom: 14px; }
+.home-slot:last-child { margin-bottom: 0; }
+.home-slot-head { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+
+/* Crew chips */
+.crew-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px; }
+.ck { padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+.ck.ae { background: rgba(66,165,245,.15); color: var(--ae); border: 1px solid rgba(66,165,245,.25); }
+.ck.rw { background: rgba(239,83,80,.15); color: var(--rw); border: 1px solid rgba(239,83,80,.25); }
+.ck.tw { background: rgba(255,167,38,.15); color: var(--tw); border: 1px solid rgba(255,167,38,.25); }
+.ck.fl { background: rgba(171,71,188,.15); color: var(--fl); border: 1px solid rgba(171,71,188,.25); }
+
+/* Task items (read-only) */
+.ti-wrap { display: flex; flex-direction: column; gap: 7px; }
+.titem { background: var(--bg); border-radius: 9px; padding: 10px 11px; border: 1px solid var(--border); display: flex; gap: 9px; align-items: flex-start; }
+.tcheck { width: 17px; height: 17px; min-width: 17px; border-radius: 4px; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 10px; margin-top: 1px; }
+.tcheck.done { background: var(--green); border-color: var(--green); color: #fff; }
+.tc-body { flex: 1; min-width: 0; }
+.tc-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.tc-title.done { text-decoration: line-through; color: var(--muted); }
+.tc-meta { display: flex; gap: 5px; align-items: center; margin-top: 3px; flex-wrap: wrap; }
+.tc-assignee { font-size: 11px; color: var(--fl); font-weight: 600; }
+.tc-prio { font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 700; }
+.tc-prio.hoog { background: rgba(239,83,80,.2); color: #ef5350; }
+.tc-prio.middel { background: rgba(255,167,38,.2); color: #ffa726; }
+.tc-prio.laag { background: rgba(76,175,80,.2); color: #4caf50; }
+.tc-team { font-size: 10px; padding: 1px 7px; border-radius: 8px; font-weight: 700; }
+.tc-team.ae { background: rgba(66,165,245,.2); color: var(--ae); }
+.tc-team.rw { background: rgba(239,83,80,.2); color: var(--rw); }
+.tc-team.tw { background: rgba(255,167,38,.2); color: var(--tw); }
+.tc-notes { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+.tc-subprogress { font-size: 10px; color: var(--muted); font-weight: 700; }
+.subtasks { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; padding-left: 2px; }
+.subitem { display: flex; align-items: center; gap: 7px; }
+.subcheck { width: 14px; height: 14px; min-width: 14px; border-radius: 4px; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 9px; }
+.subcheck.done { background: var(--green); border-color: var(--green); color: #fff; }
+.subtitle { font-size: 12px; color: var(--text); flex: 1; }
+.subtitle.done { text-decoration: line-through; color: var(--muted); }
+.empty-msg { text-align: center; color: var(--muted); font-size: 13px; padding: 22px 0; }
+
+/* Takenoverzicht */
+.sec-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; margin-top: 18px; }
+.sec-title:first-of-type { margin-top: 0; }
+.sec-title h3 { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; }
+.task-overview-day { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.task-overview-block { margin-bottom: 14px; }
+
+/* ── MOBILE ── */
+@media (max-width: 860px) {
+  header { padding: 8px 10px; gap: 8px; }
+  .legend { display: none; }
+  .logo { font-size: 13px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DreamVille <span>2026</span> — Crewplanning</div>
+  <span class="viewbadge">🔒 Weergave — alleen lezen</span>
+  <span id="openingCountdown" class="countdown"></span>
+  <div class="phase-tabs" id="phaseTabs">
+    <button class="ptab op" data-phase="opbouw">Opbouw</button>
+    <button class="ptab sh" data-phase="show">Show</button>
+    <button class="ptab af" data-phase="afbouw">Afbouw</button>
+  </div>
+  <div class="view-tabs">
+    <button class="ptab tk" id="tasksTab">✅ Taken</button>
+  </div>
+  <span id="syncIndicator"></span>
+  <div class="legend">
+    <div class="li"><div class="ld" style="background:var(--ae)"></div> All Events</div>
+    <div class="li"><div class="ld" style="background:var(--rw)"></div> Radarwerk</div>
+    <div class="li"><div class="ld" style="background:var(--tw)"></div> Team Wauw</div>
+    <div class="li"><div class="ld" style="background:var(--fl)"></div> Freelancers</div>
+  </div>
+</header>
+<div class="content-area" id="content"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// SCHEDULE DATA
+// ═══════════════════════════════════════════════════════
+
+const FREELANCERS = [
+  { key:'tombuys',  name:'Tom Buys',             role:'Guirlandes' },
+  { key:'gertjanr', name:'Gert-Jan Rombouts',    role:'TL / Driver S' },
+  { key:'gertjanv', name:'Gertj-Jan Velaerts',   role:'Driver S' },
+  { key:'haakon',   name:'Haakon Rami',          role:'TL S' },
+  { key:'dries',    name:'Dries Van Gucht',      role:'TL S' },
+  { key:'jan',      name:'Jan Stokmans',         role:'TL R' },
+  { key:'arno',     name:'Arno Lockhorst',       role:'TL R' },
+  { key:'bjorn',    name:'Björn de Ruysser',     role:'TL R' },
+  { key:'conner',   name:'Conner Cuvelier',      role:'Driver R' },
+  { key:'michael',  name:'Michael Blanchaert',   role:'Driver R' },
+];
+
+// Build schedule array
+const SCHEDULE = [];
+
+function day(id, opts) {
+  SCHEDULE.push({ id, ...opts });
+}
+
+const WD = ['Zo','Ma','Di','Wo','Do','Vr','Za'];
+function wd(y,m,d) { return WD[new Date(y,m-1,d).getDay()]; }
+
+// ── OPBOUW JUNI (4 jun – 30 jun) ──
+// 4-10 jun: no crew yet
+for(let d=4;d<=10;d++){
+  day(`2026-06-${String(d).padStart(2,'0')}`,{phase:'opbouw',label:`${d}/jun`,wd:wd(2026,6,d)});
+}
+// 11-12 jun: Team Wauw + Jan Stokmans (Excel: rij 35, col I=11/jun, col J=12/jun)
+day('2026-06-11',{phase:'opbouw',label:'11/jun',wd:wd(2026,6,11),
+  tw:{pro:1,senior:1,junior:4}, fl:{jan:1}});
+day('2026-06-12',{phase:'opbouw',label:'12/jun',wd:wd(2026,6,12),
+  tw:{pro:1,senior:1,junior:4}, fl:{jan:1}});
+day('2026-06-13',{phase:'opbouw',label:'13/jun',wd:wd(2026,6,13)});
+day('2026-06-14',{phase:'opbouw',label:'14/jun',wd:wd(2026,6,14)});
+
+// 15-19 jun: All Events + Gert-Jan + Arno + Conner + Michael (allen aanwezig per Excel)
+for(let d=15;d<=19;d++){
+  day(`2026-06-${d}`,{phase:'opbouw',label:`${d}/jun`,wd:wd(2026,6,d),start:'08:00',
+    ae:{tl:1,sh:4},
+    fl:{gertjanr:1, arno:1, conner:1, michael:1}});
+}
+// 20-21 jun: Gert-Jan, Arno, Conner, Michael AFWEZIG per Excel; geen All Events deze dagen
+day('2026-06-20',{phase:'opbouw',label:'20/jun',wd:wd(2026,6,20),start:'08:00',
+  fl:{gertjanr:0, gertjanv:0}});
+day('2026-06-21',{phase:'opbouw',label:'21/jun',wd:wd(2026,6,21),start:'08:00',
+  fl:{gertjanr:0, gertjanv:0}});
+// 22-26 jun: Gert-Jan, Arno, Conner, Michael AANWEZIG
+for(let d=22;d<=26;d++){
+  day(`2026-06-${d}`,{phase:'opbouw',label:`${d}/jun`,wd:wd(2026,6,d),start:'08:00',
+    ae:{tl:1,sh:7}, fl:{gertjanr:1, gertjanv:0, arno:1, conner:1, michael:1}});
+}
+// 27 jun: Gert-Jan AFWEZIG (Excel: 0), Michael AANWEZIG; All Events 5p (tl1+sh4) per Excel
+day('2026-06-27',{phase:'opbouw',label:'27/jun',wd:wd(2026,6,27),start:'08:00',
+  ae:{tl:1,sh:4}, fl:{gertjanr:0, gertjanv:0, michael:1}});
+// 28 jun: Gert-Jan AFWEZIG, anderen ook afwezig
+day('2026-06-28',{phase:'opbouw',label:'28/jun',wd:wd(2026,6,28),
+  fl:{gertjanr:0, gertjanv:0}});
+// 29-30 jun: All Events + Radarwerk + freelancers
+day('2026-06-29',{phase:'opbouw',label:'29/jun',wd:wd(2026,6,29),start:'08:00',
+  ae:{tl:1,sh:7}, rw:{tl:1,arc:4},
+  fl:{gertjanr:1, gertjanv:0, haakon:1, dries:1, arno:1, conner:1, michael:1}});
+day('2026-06-30',{phase:'opbouw',label:'30/jun',wd:wd(2026,6,30),start:'08:00',
+  ae:{tl:1,sh:7}, rw:{tl:1,arc:4},
+  fl:{tombuys:1, gertjanr:1, gertjanv:0, haakon:1, dries:1, arno:1, conner:1, michael:1}});
+
+// ── OPBOUW JULI (1 jul – 15 jul) ──
+for(let d=1;d<=14;d++){
+  const hasWauw = d>=9;
+  const fl = {};
+  // Tom Buys: aanwezig 1-3,6-11,13-14; afwezig 4,5,12
+  fl.tombuys  = (d<=3)?1:(d===4||d===5||d===12)?0:1;
+  // Gert-Jan Rombouts: aanwezig 1-3,5-10,12-14; afwezig 4,11
+  fl.gertjanr = (d===4||d===11)?0:1;
+  // Gertj-Jan Velaerts: afwezig 1-3 en 12; optie 5; aanwezig overige
+  fl.gertjanv = d<=3?0:d===5?-1:d===12?0:1;  // -1 = optie
+  // Haakon Rami: aanwezig 1-10,13,14; afwezig 11,12
+  fl.haakon   = (d===11||d===12)?0:1;
+  // Dries Van Gucht: aanwezig 1, afwezig 2-5, aanwezig 6-14
+  fl.dries    = (d>=2&&d<=5)?0:1;
+  // Arno Lockhorst: aanwezig 1-3,6-9,11-14; afwezig 4,5,10
+  fl.arno     = (d===4||d===5||d===10)?0:1;
+  // Björn de Ruysser: aanwezig 6-14
+  fl.bjorn    = d>=6?1:0;
+  // Conner Cuvelier: aanwezig 1-3,5-10,12-14; afwezig 4,11
+  fl.conner   = (d===4||d===11)?0:1;
+  // Michael Blanchaert: aanwezig 1-4,6-11,13-14; afwezig 5,12
+  fl.michael  = (d===5||d===12)?0:1;
+  // All Events / Radarwerk per Excel: standaard AE 8p (tl1+sh7), RW 5p (tl1+arc4),
+  // behalve 5/jul (geen AE), 12/jul (geen AE, geen RW) en 14/jul (AE 10p: tl1+sh9)
+  const ae = (d===5||d===12) ? null : {tl:1, sh: d===14?9:7};
+  const rw = (d===12) ? null : {tl:1, arc:4};
+  day(`2026-07-${String(d).padStart(2,'0')}`,{phase:'opbouw',label:`${d}/jul`,wd:wd(2026,7,d),start:'08:00',
+    ...(ae?{ae}:{}), ...(rw?{rw}:{}),
+    ...(hasWauw?{tw:{pro:1,senior:1,junior:3}}:{}), fl});
+}
+// 15/jul dag: alle freelancers aanwezig per Excel
+day('2026-07-15-dag',{phase:'opbouw',label:'15/jul',wd:wd(2026,7,15),slot:'DAG',start:'08:00',
+  ae:{tl:1,sh:7}, rw:{tl:1,arc:4}, tw:{pro:1,senior:1,junior:3},
+  fl:{tombuys:1,gertjanr:1,gertjanv:1,haakon:1,dries:1,arno:1,bjorn:1,conner:1,michael:1}});
+// 15/jul nacht: All Events 8p (tl1+sh7) blijft over voor de nacht, Radarwerk niet (per Excel)
+day('2026-07-15-nacht',{phase:'opbouw',label:'15/jul',wd:wd(2026,7,15),slot:'NACHT',night:true,
+  ae:{tl:1,sh:7}, fl:{}});
+
+// ── SHOW (16 jul – 26 jul) ──
+// Freelancer aanwezigheid per Excel (alleen vermeld indien aanwezig):
+// Gert-Jan: 16DAG,21Dag,22Dag,25Dag
+// Dries: 16Nacht,17Nacht,18Nacht,19Nacht,23Nacht,24Nacht,25Nacht
+// Tom Buys: 22Nacht
+// Arno: 16DAG,21Dag,22Dag,23DAG
+// Björn: 16Nacht,17Nacht,18Nacht,19Nacht,23Nacht,24Nacht,25Nacht
+// Conner: 16DAG,20vanaf13u,21Dag
+const showData = [
+  {id:'2026-07-16-dag',   label:'16/jul',slot:'DAG',   night:false, tw:{pro:1,senior:1,junior:4}, fl:{gertjanr:1,arno:1,conner:1}},
+  {id:'2026-07-16-nacht', label:'16/jul',slot:'NACHT', night:true,  tw:{pro:1,senior:1,junior:2}, fl:{dries:1,bjorn:1}},
+  {id:'2026-07-17-dag',   label:'17/jul',slot:'DAG',   night:false, tw:{pro:1,senior:0,junior:3}, fl:{}},
+  {id:'2026-07-17-nacht', label:'17/jul',slot:'NACHT', night:true,  tw:{pro:1,senior:0,junior:3}, fl:{dries:1,bjorn:1}},
+  {id:'2026-07-18-dag',   label:'18/jul',slot:'DAG',   night:false, tw:{pro:1,senior:0,junior:3}, fl:{}},
+  {id:'2026-07-18-nacht', label:'18/jul',slot:'NACHT', night:true,  tw:{pro:1,senior:0,junior:3}, fl:{dries:1,bjorn:1}},
+  {id:'2026-07-19-dag',   label:'19/jul',slot:'DAG',   night:false, tw:{pro:1,senior:0,junior:3}, fl:{}},
+  {id:'2026-07-19-nacht', label:'19/jul',slot:'NACHT', night:true,  tw:{pro:1,senior:0,junior:3}, fl:{dries:1,bjorn:1}},
+  {id:'2026-07-20-morgen',label:'20/jul',slot:'Morgen',night:false, tw:{pro:1,senior:0,junior:3}, fl:{}},
+  {id:'2026-07-20-avond', label:'20/jul',slot:'v.a.13u',night:true, start:'13:00',ae:{tl:1,sh:3},fl:{conner:1}},
+  {id:'2026-07-21-dag',   label:'21/jul',slot:'Dag',   night:false, start:'09:00',ae:{tl:1,sh:3},tw:{pro:1,senior:0,junior:3},fl:{gertjanr:1,arno:1,conner:1}},
+  {id:'2026-07-22-dag',   label:'22/jul',slot:'Dag',   night:false, start:'09:00',ae:{tl:1,sh:3},tw:{pro:1,senior:1,junior:3},fl:{gertjanr:1,arno:1}},
+  {id:'2026-07-22-nacht', label:'22/jul',slot:'Nacht', night:true,  start:'18:00',tw:{pro:1,senior:0,junior:3},fl:{tombuys:1}},
+  {id:'2026-07-23-dag',   label:'23/jul',slot:'DAG',   night:false, tw:{pro:1,senior:0,junior:3}, fl:{arno:1}},
+  {id:'2026-07-23-nacht', label:'23/jul',slot:'NACHT', night:true,  tw:{pro:1,senior:0,junior:3}, fl:{dries:1,bjorn:1}},
+  {id:'2026-07-24-dag',   label:'24/jul',slot:'Dag',   night:false, tw:{pro:1,senior:0,junior:3}, fl:{}},
+  {id:'2026-07-24-nacht', label:'24/jul',slot:'Nacht', night:true,  tw:{pro:1,senior:0,junior:3}, fl:{bjorn:1,dries:1}},
+  {id:'2026-07-25-dag',   label:'25/jul',slot:'Dag',   night:false, tw:{pro:1,senior:0,junior:3}, fl:{gertjanr:1}},
+  {id:'2026-07-25-nacht', label:'25/jul',slot:'Nacht', night:true,  tw:{pro:1,senior:0,junior:3}, fl:{bjorn:1,dries:1}},
+  {id:'2026-07-26-dag',   label:'26/jul',slot:'Dag',   night:false, tw:{pro:1,senior:0,junior:4}, fl:{}},
+  {id:'2026-07-26-nacht', label:'26/jul',slot:'Nacht', night:true,  tw:{pro:1,senior:1,junior:4}, fl:{}},
+];
+showData.forEach(s=>day(s.id,{phase:'show',wd:wd(2026,7,parseInt(s.label)),...s}));
+
+// ── AFBOUW (27 jul – 7 aug) ──
+// Aanwezigheid per Excel:
+// Arno: 27-30/jul=1, 31/jul=0, 1/aug=0, 2-6/aug=1
+// Björn: 27-31/jul=1, 1/aug=1, daarna afwezig
+// Conner: 27-31/jul=1, 1/aug=0, 2-7/aug=1
+// Michael: 27-31/jul=1, 1/aug=1, 2/aug=0, 3-7/aug=1
+const afbData = [
+  {d:'2026-07-27',l:'27/jul',ae:{tl:1,sh:7}, rw:{tl:1,arc:4},tw:{pro:1,senior:1,junior:4},start:'13:00',
+   fl:{tombuys:1,gertjanr:1,gertjanv:1,haakon:1,dries:1,arno:1,bjorn:1,conner:1,michael:1}},
+  {d:'2026-07-28',l:'28/jul',ae:{tl:1,sh:9}, rw:{tl:1,arc:7},tw:{pro:1,senior:0,junior:4},
+   fl:{tombuys:1,gertjanr:1,gertjanv:1,haakon:1,dries:1,arno:1,bjorn:1,conner:1,michael:1}},
+  {d:'2026-07-29',l:'29/jul',ae:{tl:1,sh:9}, rw:{tl:1,arc:7},tw:{pro:1,senior:0,junior:4},
+   fl:{tombuys:1,gertjanr:1,gertjanv:1,haakon:1,dries:1,arno:1,bjorn:1,conner:1,michael:1}},
+  {d:'2026-07-30',l:'30/jul',ae:{tl:1,sh:9}, rw:{tl:1,arc:7},tw:{pro:1,senior:0,junior:4},
+   fl:{tombuys:1,gertjanr:1,gertjanv:1,haakon:1,dries:1,arno:1,bjorn:1,conner:1,michael:1}},
+  {d:'2026-07-31',l:'31/jul',ae:{tl:1,sh:9}, rw:{tl:1,arc:7},tw:{pro:1,senior:0,junior:4},
+   fl:{tombuys:1,gertjanr:1,gertjanv:1,haakon:1,dries:1,arno:0,bjorn:1,conner:1,michael:1}},
+  {d:'2026-08-01',l:'1/aug', ae:{tl:1,sh:7}, rw:{tl:1,arc:7},tw:{pro:1,senior:0,junior:4},
+   fl:{tombuys:1,gertjanr:0,gertjanv:1,haakon:1,dries:1,arno:0,bjorn:1,conner:0,michael:1}},
+  {d:'2026-08-02',l:'2/aug', rw:{tl:1,arc:4},
+   fl:{gertjanr:1,gertjanv:0,haakon:1,arno:1,bjorn:0,conner:1,michael:0}},
+  {d:'2026-08-03',l:'3/aug', ae:{tl:1,sh:9},
+   fl:{gertjanr:1,haakon:1,arno:1,conner:1,michael:1}},
+  {d:'2026-08-04',l:'4/aug', ae:{tl:1,sh:9},
+   fl:{gertjanr:1,haakon:1,arno:1,conner:1,michael:1}},
+  {d:'2026-08-05',l:'5/aug', ae:{tl:1,sh:5},
+   fl:{gertjanr:1,arno:1,conner:1,michael:1}},
+  {d:'2026-08-06',l:'6/aug', ae:{tl:1,sh:5},
+   fl:{gertjanr:1,arno:1,conner:1,michael:1}},
+  {d:'2026-08-07',l:'7/aug', ae:{tl:1,sh:5},
+   fl:{conner:1,michael:1}},
+];
+afbData.forEach(x=>{
+  const m=parseInt(x.d.split('-')[1]),dd=parseInt(x.d.split('-')[2]);
+  day(x.d,{phase:'afbouw',label:x.l,wd:wd(2026,m,dd),...x,d:undefined,l:undefined});
+});
+
+// ═══════════════════════════════════════════════════════
+// ANTON BESCHIKBAARHEID (op basis van agenda DV26BE)
+// ═══════════════════════════════════════════════════════
+const ANTON = {
+  // JUNI
+  '2026-06-03':1,'2026-06-04':0,'2026-06-05':1,'2026-06-06':0,'2026-06-07':0,
+  '2026-06-08':0,'2026-06-09':0,'2026-06-10':1,'2026-06-11':1,'2026-06-12':1,
+  '2026-06-13':0,'2026-06-14':0,'2026-06-15':0,'2026-06-16':1,'2026-06-17':1,
+  '2026-06-18':1,'2026-06-19':1,'2026-06-20':0,'2026-06-21':0,'2026-06-22':1,
+  '2026-06-23':0,'2026-06-24':1,'2026-06-25':0,'2026-06-26':0,'2026-06-27':1,
+  '2026-06-28':1,'2026-06-29':0,'2026-06-30':0,
+  // JULI opbouw
+  '2026-07-01':1,'2026-07-02':1,'2026-07-03':1,'2026-07-04':0,'2026-07-05':1,
+  '2026-07-06':1,'2026-07-07':1,'2026-07-08':1,'2026-07-09':1,'2026-07-10':0,
+  '2026-07-11':1,'2026-07-12':1,'2026-07-13':1,'2026-07-14':1,
+  // 15 jul
+  '2026-07-15-dag':1,'2026-07-15-nacht':0,
+  // SHOW (WE1 = ochtendshift dag, WE2 = nachtshift)
+  '2026-07-16-dag':1,'2026-07-16-nacht':0,
+  '2026-07-17-dag':0,'2026-07-17-nacht':0,
+  '2026-07-18-dag':1,'2026-07-18-nacht':0,
+  '2026-07-19-dag':1,'2026-07-19-nacht':0,
+  '2026-07-20-morgen':1,'2026-07-20-avond':0,
+  '2026-07-21-dag':0,
+  '2026-07-22-dag':0,'2026-07-22-nacht':0,
+  '2026-07-23-dag':0,'2026-07-23-nacht':1,
+  '2026-07-24-dag':0,'2026-07-24-nacht':1,
+  '2026-07-25-dag':0,'2026-07-25-nacht':1,
+  '2026-07-26-dag':0,'2026-07-26-nacht':1,
+  // AFBOUW
+  '2026-07-27':1,'2026-07-28':1,'2026-07-29':1,'2026-07-30':1,'2026-07-31':1,
+  '2026-08-01':0,'2026-08-02':0,'2026-08-03':0,
+  '2026-08-04':1,'2026-08-05':1,'2026-08-06':1,'2026-08-07':1,
+};
+
+// ═══════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════
+const TEAM_SECTIONS = [
+  { key:'ae', label:'All Events', cls:'ae' },
+  { key:'rw', label:'Radarwerk',  cls:'rw' },
+  { key:'tw', label:'Team Wauw',  cls:'tw' },
+];
+function teamMaxForSlot(slot, teamLabel) {
+  if(!slot) return 0;
+  if(teamLabel==='All Events' && slot.ae) return 1 + (slot.ae.sh||0);
+  if(teamLabel==='Radarwerk' && slot.rw) return 1 + (slot.rw.arc||0);
+  if(teamLabel==='Team Wauw' && slot.tw) return (slot.tw.pro||0)+(slot.tw.senior||0)+(slot.tw.junior||0);
+  return 0;
+}
+function teamClsForLabel(teamLabel) {
+  const sec = TEAM_SECTIONS.find(s=>s.label===teamLabel);
+  return sec ? sec.cls : '';
+}
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function slotBaseDate(id) { return id.slice(0,10); }
+const WD_FULL = ['Zondag','Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag'];
+function fmtHomeDate(dateStr) {
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  return `${WD[dt.getDay()]} ${d}/${m}`;
+}
+
+// ═══════════════════════════════════════════════════════
+// DATA (alleen-lezen sync vanuit JSONBin)
+// ═══════════════════════════════════════════════════════
+const SYNC = {
+  binId: '6a29df92da38895dfea9b044',
+  apiKey: '$2a$10$iiFDK.OPrJBT.uKNd4Repufy7Eu9KryV42t3zOKl7jCw4lMEelWt6',
+};
+let APP_DATA = { tasks:{}, overrides:{}, notes:'', updatedAt:0 };
+function getTasksForSlot(slotId) { return APP_DATA.tasks[slotId] || []; }
+
+// Past opgeslagen overrides (aanwezigheid-aanpassingen) toe op SCHEDULE / ANTON.
+function applyOverrides() {
+  Object.keys(APP_DATA.overrides || {}).forEach(slotId=>{
+    const slot = SCHEDULE.find(s=>s.id===slotId);
+    if(!slot) return;
+    const ov = APP_DATA.overrides[slotId];
+    if(ov.fl){
+      slot.fl = {...(slot.fl||{})};
+      Object.keys(ov.fl).forEach(k=>{
+        if(ov.fl[k]===null) delete slot.fl[k];
+        else slot.fl[k] = ov.fl[k];
+      });
+    }
+    if(ov.anton){
+      const v = ov.anton.v;
+      if(v===null) delete ANTON[slotId];
+      else ANTON[slotId] = v;
+    }
+    ['ae','rw','tw'].forEach(grp=>{
+      if(ov[grp]){
+        slot[grp] = {...(slot[grp]||{})};
+        Object.keys(ov[grp]).forEach(k=>{
+          if(ov[grp][k]===null) delete slot[grp][k];
+          else slot[grp][k] = ov[grp][k];
+        });
+        if(Object.keys(slot[grp]).length===0) delete slot[grp];
+      }
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// TAKEN (alleen-lezen)
+// ═══════════════════════════════════════════════════════
+function subtaskProgressHtml(t) {
+  const subs = t.subtasks||[];
+  if(subs.length===0) return '';
+  const done = subs.filter(s=>s.done).length;
+  return `<span class="tc-subprogress">${done}/${subs.length} subtaken</span>`;
+}
+function renderSubtasksReadOnly(t) {
+  const subs = t.subtasks||[];
+  if(subs.length===0) return '';
+  let html = '<div class="subtasks">';
+  subs.forEach(s=>{
+    html += `<div class="subitem">
+      <div class="subcheck ${s.done?'done':''}">${s.done?'✓':''}</div>
+      <div class="subtitle ${s.done?'done':''}">${esc(s.title)}</div>
+    </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+function renderTaskItemReadOnly(slotId, t) {
+  const pCls = t.priority==='Hoog'?'hoog':t.priority==='Middel'?'middel':'laag';
+  let teamHtml = '';
+  if(t.team){
+    const slot = SCHEDULE.find(s=>s.id===slotId);
+    const max = teamMaxForSlot(slot, t.team);
+    const cnt = (t.teamCount!=null && t.teamCount!=='') ? `${t.teamCount}${max?'/'+max:''}` : '';
+    teamHtml = `<span class="tc-team ${teamClsForLabel(t.team)}">🧩 ${esc(t.team)}${cnt?` (${cnt})`:''}</span>`;
+  }
+  return `
+  <div class="titem">
+    <div class="tcheck ${t.done?'done':''}">${t.done?'✓':''}</div>
+    <div class="tc-body">
+      <div class="tc-title ${t.done?'done':''}">${esc(t.title)}</div>
+      <div class="tc-meta">
+        ${t.assignee?`<span class="tc-assignee">👤 ${esc(t.assignee)}</span>`:''}
+        ${teamHtml}
+        <span class="tc-prio ${pCls}">${t.priority}</span>
+        ${subtaskProgressHtml(t)}
+      </div>
+      ${t.notes?`<div class="tc-notes">${esc(t.notes)}</div>`:''}
+      ${renderSubtasksReadOnly(t)}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// DAGKAARTEN
+// ═══════════════════════════════════════════════════════
+let todayStr = new Date().toISOString().slice(0,10);
+
+function renderDaySlot(slot) {
+  let html = `<div class="home-slot">
+    <div class="home-slot-head">${slot.label}${slot.slot?' — '+slot.slot:''}${slot.start?' · start '+slot.start+'u':''}</div>`;
+
+  html += '<div class="crew-chips">';
+  const antonPresent = ANTON[slot.id];
+  if(antonPresent===1) html += `<span class="ck" style="background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.3)">✓ Anton aanwezig</span>`;
+  if(slot.ae) html += `<span class="ck ae">All Events: ${1+(slot.ae.sh||0)}</span>`;
+  if(slot.rw) html += `<span class="ck rw">Radarwerk: ${1+(slot.rw.arc||0)}</span>`;
+  if(slot.tw) {
+    const n = (slot.tw.pro||0)+(slot.tw.senior||0)+(slot.tw.junior||0);
+    html += `<span class="ck tw">Team Wauw: ${n}</span>`;
+  }
+  const fl = slot.fl||{};
+  FREELANCERS.forEach(f=>{
+    if(fl[f.key]===1) html += `<span class="ck fl">${f.name.split(' ')[0]}</span>`;
+    else if(fl[f.key]===-1) html += `<span class="ck fl" style="opacity:.6">${f.name.split(' ')[0]} (opt)</span>`;
+  });
+  if(antonPresent!==1 && !slot.ae && !slot.rw && !slot.tw && Object.keys(fl).length===0){
+    html += '<span style="font-size:12px;color:var(--muted)">Geen aanwezigheden geregistreerd.</span>';
+  }
+  html += '</div>';
+
+  const tasks = getTasksForSlot(slot.id);
+  if(tasks.length===0){
+    html += '<div class="empty-msg" style="padding:10px 0">Geen taken voor deze dag.</div>';
+  } else {
+    html += '<div class="ti-wrap">';
+    tasks.forEach(t=>{ html += renderTaskItemReadOnly(slot.id, t); });
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderDayCard(dateStr) {
+  const slots = SCHEDULE.filter(s=>slotBaseDate(s.id)===dateStr);
+  const isToday = dateStr===todayStr;
+  let body = slots.map(s=>renderDaySlot(s)).join('');
+  return `<div class="home-card ${isToday?'today':''}">
+    <div class="home-card-head">
+      <div class="home-card-title">${fmtHomeDate(dateStr)}${isToday?'<span class="today-pill">Vandaag</span>':''}</div>
+      <div class="home-card-date">${dateStr}</div>
+    </div>
+    ${body}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// FASEWEERGAVE
+// ═══════════════════════════════════════════════════════
+let currentPhase = 'opbouw';
+let currentView = 'planning'; // 'planning' | 'taken'
+
+function uniqueDatesForPhase(phase) {
+  const seen = new Set(); const dates=[];
+  SCHEDULE.filter(s=>s.phase===phase).forEach(s=>{
+    const d = slotBaseDate(s.id);
+    if(!seen.has(d)){ seen.add(d); dates.push(d); }
+  });
+  return dates;
+}
+
+const PHASE_TITLES = { opbouw:'Opbouw', show:'Show', afbouw:'Afbouw' };
+
+function renderPhase() {
+  const dates = uniqueDatesForPhase(currentPhase);
+  let html = `<h2>${PHASE_TITLES[currentPhase]}</h2>`;
+  if(dates.length===0){
+    html += '<div class="empty-msg">Geen planningsdata voor deze fase.</div>';
+  } else {
+    html += '<div class="home-grid">';
+    dates.forEach(d=>{ html += renderDayCard(d); });
+    html += '</div>';
+  }
+  document.getElementById('content').innerHTML = html;
+
+  // Scroll naar "vandaag" bij opbouw/laden
+  setTimeout(()=>{
+    const todayCard = document.querySelector('.home-card.today');
+    if(todayCard) todayCard.scrollIntoView({behavior:'instant', block:'start'});
+  }, 30);
+}
+
+// ═══════════════════════════════════════════════════════
+// TAKENOVERZICHT (alleen-lezen)
+// ═══════════════════════════════════════════════════════
+function renderTasksOverviewReadOnly() {
+  let html = '<h2>Takenoverzicht</h2>';
+  const phases = [['opbouw','Opbouw'],['show','Show'],['afbouw','Afbouw']];
+  let any = false;
+  phases.forEach(([pkey,plabel])=>{
+    const slots = SCHEDULE.filter(s=>s.phase===pkey && getTasksForSlot(s.id).length>0);
+    if(slots.length===0) return;
+    any = true;
+    html += `<div class="sec-title"><h3>${plabel}</h3></div>`;
+    slots.forEach(s=>{
+      const tasks = getTasksForSlot(s.id);
+      html += `<div class="task-overview-block">
+        <div class="task-overview-day">${s.label}${s.slot?' — '+s.slot:''}</div>
+        <div class="ti-wrap">`;
+      tasks.forEach(t=>{ html += renderTaskItemReadOnly(s.id, t); });
+      html += '</div></div>';
+    });
+  });
+  if(!any) html += '<div class="empty-msg">Nog geen taken aangemaakt.</div>';
+  document.getElementById('content').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════
+// VIEW SWITCHING
+// ═══════════════════════════════════════════════════════
+function render() {
+  if(currentView==='taken') renderTasksOverviewReadOnly();
+  else renderPhase();
+}
+
+document.querySelectorAll('.ptab[data-phase]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    currentPhase = btn.dataset.phase;
+    currentView = 'planning';
+    document.querySelectorAll('.ptab[data-phase]').forEach(b=>b.classList.toggle('active', b===btn));
+    document.getElementById('tasksTab')?.classList.remove('active');
+    render();
+  });
+});
+
+document.getElementById('tasksTab')?.addEventListener('click', ()=>{
+  currentView = 'taken';
+  document.getElementById('tasksTab')?.classList.add('active');
+  document.querySelectorAll('.ptab[data-phase]').forEach(b=>b.classList.remove('active'));
+  render();
+});
+
+// ═══════════════════════════════════════════════════════
+// COUNTDOWN
+// ═══════════════════════════════════════════════════════
+const OPENING_DATE = new Date(2026, 6, 16);
+const CLOSING_DATE = new Date(2026, 6, 26);
+function renderOpeningCountdown(){
+  const el = document.getElementById('openingCountdown');
+  if(!el) return;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round((OPENING_DATE - today) / 86400000);
+  let cls = 'countdown', text;
+  if(diffDays > 0){
+    text = `🎪 Nog ${diffDays} dag${diffDays===1?'':'en'} tot opening`;
+  } else if(diffDays === 0){
+    cls += ' live';
+    text = `🎪 Opening vandaag!`;
+  } else if(today <= CLOSING_DATE){
+    cls += ' live';
+    text = `🎉 Festival bezig — dag ${diffDays*-1+1}`;
+  } else {
+    cls += ' past';
+    text = `✓ Opening was ${diffDays*-1} dagen geleden`;
+  }
+  el.className = cls;
+  el.textContent = text;
+}
+
+// ═══════════════════════════════════════════════════════
+// CLOUD SYNC (alleen lezen — geen schrijfacties)
+// ═══════════════════════════════════════════════════════
+const syncEl = document.getElementById('syncIndicator');
+function setSyncIndicator(s, lastSyncAt) {
+  if(!syncEl) return;
+  if(s==='syncing') syncEl.innerHTML = '<span style="color:var(--muted)">⟳ laden...</span>';
+  else if(s==='error') syncEl.innerHTML = '<span style="color:var(--rw)">⚠ laden mislukt</span>';
+  else syncEl.innerHTML = `<span style="color:var(--green)">✓ live ${lastSyncAt?lastSyncAt.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}):''}</span>`;
+}
+
+async function loadCloudData() {
+  setSyncIndicator('syncing');
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${SYNC.binId}/latest`, {
+      headers: { 'X-Master-Key': SYNC.apiKey }
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const json = await res.json();
+    const cloud = json.record || {};
+    APP_DATA = { tasks:{}, overrides:{}, notes:'', updatedAt:0, ...cloud };
+    applyOverrides();
+    setSyncIndicator('ok', new Date());
+    render();
+  } catch(e) {
+    console.warn('Laden mislukt', e);
+    setSyncIndicator('error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+function autoPhase(){
+  const d = new Date();
+  const y=d.getFullYear(),m=d.getMonth()+1,dd=d.getDate();
+  if(y===2026){
+    if(m===6||(m===7&&dd<=15)) return 'opbouw';
+    if(m===7&&dd>=16&&dd<=26) return 'show';
+    if((m===7&&dd>=27)||m===8) return 'afbouw';
+  }
+  return 'opbouw';
+}
+currentPhase = autoPhase();
+const activeTab = document.querySelector(`.ptab[data-phase="${currentPhase}"]`);
+if(activeTab) activeTab.classList.add('active');
+else document.querySelector('.ptab.op').classList.add('active');
+
+renderOpeningCountdown();
+render();
+loadCloudData();
+setInterval(loadCloudData, 30000);
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible') loadCloudData();
+});
+</script>
+</body>
+</html>
