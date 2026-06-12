@@ -1141,6 +1141,7 @@ const MATERIAL_ITEMS = [
 ];
 let materialsOpenIds = new Set(); // taakIds waarvan materiaalpaneel open staat (UI state, niet opgeslagen)
 let materialsShowPast = false; // toon "Verleden"-sectie in materiaaloverzicht (UI state, niet opgeslagen)
+let tasksShowPast = false; // toon "Verleden"-sectie in takenoverzicht (UI state, niet opgeslagen)
 
 // ── Ploeg sitecrew toewijzing ──
 const TEAM_SECTIONS = [
@@ -1671,33 +1672,64 @@ function renderHomeSlot(slot) {
 // ── Takenoverzicht ──
 function renderTasksOverview() {
   const all = loadTasks();
+  const todayStr = new Date().toISOString().slice(0,10);
   let html = `<div class="sec-title"><h2 style="margin-bottom:0">Takenoverzicht</h2><button class="btn-primary" onclick="showNewTaskForm()">+ Nieuwe taak</button></div>`;
 
   if(tvAddingTask){ html += renderNewTaskForm(); }
 
+  const renderDayBlock = (s, tasks) => {
+    let h = `<div style="margin-bottom:14px;">
+      <div class="task-overview-day-row">
+        <div class="task-overview-day" onclick="goToSlot('${s.id}')">${s.label}${s.slot?' — '+s.slot:''} <span class="toh">↗ open in planning</span></div>
+        <button class="btn-icon" onclick="showNewTaskForm('${s.id}')" title="Taak toevoegen voor deze dag">+ Taak</button>
+      </div>
+      <div class="ti-wrap">`;
+    tasks.forEach(t=>{ h += renderTaskItemOverview(s.id, t); });
+    h += '</div></div>';
+    return h;
+  };
+
   const phases = [['opbouw','Opbouw'],['show','Show'],['afbouw','Afbouw']];
   let any = false;
+  let pastHtml = '';
+  let anyPast = false;
   phases.forEach(([pkey,plabel])=>{
     const slots = SCHEDULE.filter(s=>s.phase===pkey && (all[s.id]||[]).length>0);
     if(slots.length===0) return;
-    any = true;
-    html += `<div class="sec-title"><h3>${plabel}</h3></div>`;
+    const upcoming = [];
+    const past = [];
     slots.forEach(s=>{
       const tasks = all[s.id]||[];
-      html += `<div style="margin-bottom:14px;">
-        <div class="task-overview-day-row">
-          <div class="task-overview-day" onclick="goToSlot('${s.id}')">${s.label}${s.slot?' — '+s.slot:''} <span class="toh">↗ open in planning</span></div>
-          <button class="btn-icon" onclick="showNewTaskForm('${s.id}')" title="Taak toevoegen voor deze dag">+ Taak</button>
-        </div>
-        <div class="ti-wrap">`;
-      tasks.forEach(t=>{ html += renderTaskItemOverview(s.id, t); });
-      html += '</div></div>';
+      const isPastDone = slotBaseDate(s.id)<todayStr && tasks.every(t=>t.done);
+      (isPastDone ? past : upcoming).push(s);
     });
+    if(upcoming.length>0){
+      any = true;
+      html += `<div class="sec-title"><h3>${plabel}</h3></div>`;
+      upcoming.forEach(s=>{ html += renderDayBlock(s, all[s.id]||[]); });
+    }
+    if(past.length>0){
+      anyPast = true;
+      pastHtml += `<div class="sec-title"><h3>${plabel}</h3></div>`;
+      past.forEach(s=>{ pastHtml += renderDayBlock(s, all[s.id]||[]); });
+    }
   });
+
+  if(anyPast){
+    any = true;
+    html += `<div class="materials-toggle" onclick="toggleTasksPast()">🕘 Verleden <span class="mat-arrow">${tasksShowPast?'▾':'▸'}</span></div>`;
+    if(tasksShowPast) html += `<div class="materials-panel">${pastHtml}</div>`;
+  }
+
   if(!any && !tvAddingTask) html += '<div class="empty-msg">Nog geen taken aangemaakt.<br>Klik op "+ Nieuwe taak" om er een toe te voegen.</div>';
   document.getElementById('view-tasks').innerHTML = html;
 
   if(tvAddingTask){ setTimeout(()=>document.getElementById('ntf-title')?.focus(),50); }
+}
+
+function toggleTasksPast() {
+  tasksShowPast = !tasksShowPast;
+  renderTasksOverview();
 }
 
 // ── Nieuwe taak vanuit Takenoverzicht ──
