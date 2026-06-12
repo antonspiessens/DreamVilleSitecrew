@@ -24,7 +24,7 @@
   --ph-afbouw: #4caf50;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; height: 100dvh; overflow: hidden; }
+html, body { height: 100%; overflow: hidden; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; }
 
 /* ── HEADER ── */
@@ -239,20 +239,6 @@ td.cc.inactive { cursor: default; }
 .sub-add-row button { background: none; border: 1px solid var(--border); border-radius: 5px; color: var(--muted); cursor: pointer; font-size: 12px; padding: 4px 9px; font-weight: 700; }
 .sub-add-row button:hover { color: var(--text); border-color: var(--accent); }
 .tc-actions { display: flex; flex-direction: column; gap: 3px; }
-.btn-icon { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 3px 5px; border-radius: 4px; line-height: 1; }
-.btn-icon:hover { color: var(--text); background: var(--border); }
-.empty-msg { text-align: center; color: var(--muted); font-size: 13px; padding: 22px 0; }
-
-/* Kopieer-taak modal */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
-.modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; max-width: 420px; width: 100%; max-height: 80vh; overflow-y: auto; }
-.modal-box h3 { font-size: 15px; font-weight: 800; margin-bottom: 10px; }
-.modal-day-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
-.modal-phase-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 8px; margin-bottom: 2px; }
-.modal-phase-label:first-child { margin-top: 0; }
-.modal-day-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); padding: 4px 6px; border-radius: 6px; cursor: pointer; }
-.modal-day-item:hover { background: var(--surface2); }
-.modal-day-item input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
 
 /* Materiaalchecklist */
 .tc-matbadge { font-size: 10px; color: var(--muted); font-weight: 700; }
@@ -273,24 +259,20 @@ td.cc.inactive { cursor: default; }
 .mat-task-head { margin-bottom: 8px; }
 .mat-task-head .tc-meta { margin-top: 4px; }
 .mat-copy-btn { border: 1px solid var(--border); font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+.btn-icon { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 3px 5px; border-radius: 4px; line-height: 1; }
+.btn-icon:hover { color: var(--text); background: var(--border); }
 
-/* ── MOBILE (telefoon/tablet) ── */
-@media (max-width: 860px) {
-  .panel {
-    position: fixed;
-    top: 0; right: 0; bottom: 0;
-    width: 100%;
-    min-width: 0;
-    height: 100%;
-    z-index: 100;
-    transform: translateX(100%);
-    box-shadow: -4px 0 24px rgba(0,0,0,.4);
-  }
-  .panel.open { transform: translateX(0); }
-  header { padding: 8px 10px; gap: 8px; }
-  .legend { display: none; }
-  .logo { font-size: 13px; }
-}
+/* Kopieer-taak modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+.modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; max-width: 420px; width: 100%; max-height: 80vh; overflow-y: auto; }
+.modal-box h3 { font-size: 15px; font-weight: 800; margin-bottom: 10px; }
+.modal-day-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+.modal-phase-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 8px; margin-bottom: 2px; }
+.modal-phase-label:first-child { margin-top: 0; }
+.modal-day-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+.modal-day-item:hover { background: var(--surface2); }
+.modal-day-item input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+.empty-msg { text-align: center; color: var(--muted); font-size: 13px; padding: 22px 0; }
 </style>
 </head>
 <body>
@@ -568,8 +550,8 @@ const STORAGE_KEY = 'dv26_data';
 // Vul hier je JSONBin gegevens in om te synchroniseren tussen toestellen
 // (pc + gsm). Leeg laten = alles blijft lokaal in deze browser.
 const SYNC = {
-  binId: '6a29df92da38895dfea9b044',
-  apiKey: '$2a$10$iiFDK.OPrJBT.uKNd4Repufy7Eu9KryV42t3zOKl7jCw4lMEelWt6',
+  binId: '',   // bv. '64f1a2b3c4d5e6f7a8b9c0d1'
+  apiKey: '',  // je JSONBin X-Master-Key
 };
 
 function emptyData() { return { tasks:{}, overrides:{}, notes:'', updatedAt:0 }; }
