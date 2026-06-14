@@ -51,12 +51,8 @@
   var viewer = OpenSeadragon({
     id: "viewer",
     prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-    tileSources: "dzi2/plan.dzi",
+    tileSources: "dzi3/plan.dzi",
     showNavigationControl: false,
-    zoomInButton: "zoomInBtn",
-    zoomOutButton: "zoomOutBtn",
-    homeButton: "homeBtn",
-    fullPageButton: "fullpageBtn",
     minZoomImageRatio: 0.8,
     maxZoomPixelRatio: 4,
     gestureSettingsTouch: { pinchRotate: false },
@@ -70,6 +66,21 @@
   viewer.addHandler('open-failed', function() {
     var el = document.getElementById('loadingMsg');
     if (el) el.textContent = 'Plan kon niet geladen worden.';
+  });
+
+  document.getElementById('zoomInBtn').addEventListener('click', function() {
+    viewer.viewport.zoomBy(1.5);
+    viewer.viewport.applyConstraints();
+  });
+  document.getElementById('zoomOutBtn').addEventListener('click', function() {
+    viewer.viewport.zoomBy(1 / 1.5);
+    viewer.viewport.applyConstraints();
+  });
+  document.getElementById('homeBtn').addEventListener('click', function() {
+    viewer.viewport.goHome();
+  });
+  document.getElementById('fullpageBtn').addEventListener('click', function() {
+    viewer.setFullScreen(!viewer.isFullPage());
   });
 </script>
 </body>
