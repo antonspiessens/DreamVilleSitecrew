@@ -1466,8 +1466,18 @@ function uniqueDatesForPhase(pkey) {
   return [...set].sort();
 }
 
-function renderWeeklyMaterialsOverview() {
-  let html = '<div class="mat-intro">Piekbehoefte per materiaal: het maximum dat op één dag binnen die week tegelijk nodig is, gebaseerd op de toegewezen taken.</div>';
+// Een week ('YYYY-MM-DD' = maandag van die week) is 'voorbij' als de zondag
+// van die week al verstreken is.
+function isWeekPast(weekStart) {
+  const [y,m,d] = weekStart.split('-').map(Number);
+  const end = new Date(y, m-1, d);
+  end.setDate(end.getDate()+6);
+  return toLocalISO(end) < new Date().toISOString().slice(0,10);
+}
+
+function renderWeeklyMaterialsOverview(showPast) {
+  showPast = !!showPast;
+  let html = showPast ? '' : '<div class="mat-intro">Piekbehoefte per materiaal: het maximum dat op één dag binnen die week tegelijk nodig is, gebaseerd op de toegewezen taken.</div>';
   const phases = [['opbouw','Opbouw'],['show','Show'],['afbouw','Afbouw']];
   let any = false;
   phases.forEach(([pkey,plabel])=>{
@@ -1477,6 +1487,7 @@ function renderWeeklyMaterialsOverview() {
     dates.forEach(d=>{ (weeks[getWeekKey(d)] = weeks[getWeekKey(d)]||[]).push(d); });
     let phaseHtml = '';
     Object.keys(weeks).sort().forEach(wk=>{
+      if(isWeekPast(wk) !== showPast) return;
       const dayTotals = {};
       const extras = new Set();
       weeks[wk].forEach(d=>{
@@ -1511,7 +1522,10 @@ function renderWeeklyMaterialsOverview() {
       html += `<div class="sec-title"><h3>${plabel}</h3></div>${phaseHtml}`;
     }
   });
-  if(!any) html += '<div class="empty-msg">Nog geen materiaal toegewezen aan taken.</div>';
+  if(!any){
+    if(showPast) return '';
+    html += '<div class="empty-msg">Nog geen materiaal toegewezen aan taken.</div>';
+  }
   return html;
 }
 
@@ -2666,7 +2680,8 @@ function renderMaterialsOverview() {
   let html = '<h2>Materiaalchecklist</h2>';
 
   html += `<div class="materials-toggle" onclick="toggleMaterialsWeekly()">🗓️ Wekelijks overzicht (piekbehoefte) <span class="mat-arrow">${materialsShowWeekly?'▾':'▸'}</span></div>`;
-  if(materialsShowWeekly) html += `<div class="materials-panel">${renderWeeklyMaterialsOverview()}</div>`;
+  if(materialsShowWeekly) html += `<div class="materials-panel">${renderWeeklyMaterialsOverview(false)}</div>`;
+  const pastWeeklyHtml = renderWeeklyMaterialsOverview(true);
 
   const renderDayBlock = (s, tasks) => {
     let h = `<div class="mat-day-block">
@@ -2701,10 +2716,15 @@ function renderMaterialsOverview() {
     }
   });
 
-  if(anyPast){
+  if(anyPast || pastWeeklyHtml){
     any = true;
     html += `<div class="materials-toggle" onclick="toggleMaterialsPast()">🕘 Verleden <span class="mat-arrow">${materialsShowPast?'▾':'▸'}</span></div>`;
-    if(materialsShowPast) html += `<div class="materials-panel">${pastHtml}</div>`;
+    if(materialsShowPast){
+      let pastPanel = '';
+      if(pastWeeklyHtml) pastPanel += `<div class="sec-title"><h3>Wekelijks overzicht (piekbehoefte)</h3></div>${pastWeeklyHtml}`;
+      pastPanel += pastHtml;
+      html += `<div class="materials-panel">${pastPanel}</div>`;
+    }
   }
 
   if(!any) html += '<div class="empty-msg">Nog geen taken aangemaakt.<br>Voeg taken toe via "Taken" of "Planning" — hier kan je per taak het materiaal aanvinken.</div>';
