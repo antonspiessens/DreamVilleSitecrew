@@ -59,6 +59,7 @@ body.edit-mode td.cc:not(.sec):hover { outline: 2px dashed var(--yellow); outlin
 .nav-item .ni-icon { font-size: 18px; line-height: 1; }
 .nav-item:hover { color: var(--text); background: var(--surface2); }
 .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(108,99,255,.08); }
+.nav-link { text-decoration: none; margin-top: auto; }
 
 .content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 
@@ -325,6 +326,7 @@ td.cc.inactive { cursor: default; }
     <button class="nav-item" data-view="freelancers" title="Freelancer-overzicht"><span class="ni-icon">👤</span>Freelance</button>
     <button class="nav-item" data-view="stats" title="Statistieken"><span class="ni-icon">📊</span>Stats</button>
     <button class="nav-item" data-view="notes" title="Notities"><span class="ni-icon">📝</span>Notities</button>
+    <a class="nav-item nav-link" href="plan.html" target="_blank" title="Terreinplan (zoom)"><span class="ni-icon">🗺️</span>Plan</a>
   </nav>
   <div class="content-area">
     <div class="stats-bar" id="statsBar"></div>
@@ -1828,13 +1830,13 @@ function renderTableHeaders() {
 // ═══════════════════════════════════════════════════════
 // SIDEBAR NAVIGATION / VIEWS
 // ═══════════════════════════════════════════════════════
-document.querySelectorAll('.nav-item').forEach(btn=>{
+document.querySelectorAll('.nav-item:not(.nav-link)').forEach(btn=>{
   btn.addEventListener('click',()=>switchView(btn.dataset.view));
 });
 
 function switchView(view) {
   currentView = view;
-  document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active', b.dataset.view===view));
+  document.querySelectorAll('.nav-item:not(.nav-link)').forEach(b=>b.classList.toggle('active', b.dataset.view===view));
   document.querySelectorAll('.main, .view-page').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+view).classList.add('active');
   if(view==='home'){ renderHomeView(); }
