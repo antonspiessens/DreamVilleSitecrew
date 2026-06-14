@@ -1275,6 +1275,12 @@ function statusIcon(x) {
   const st = getStatus(x);
   return st==='done' ? '✓' : st==='bezig' ? '●' : '';
 }
+// Een taak telt als 'klaar' (voor Verleden) als ze zelf klaar is, of als alle subtaken klaar zijn.
+function isTaskDoneEffective(t) {
+  if(t.done) return true;
+  const subs = t.subtasks||[];
+  return subs.length>0 && subs.every(s=>s.done);
+}
 
 // ── Subtaken ──
 function renderSubtasksHtml(slotId, t) {
@@ -1732,7 +1738,7 @@ function renderTasksOverview() {
     const past = [];
     slots.forEach(s=>{
       const tasks = all[s.id]||[];
-      const isPastDone = slotBaseDate(s.id)<todayStr && tasks.every(t=>t.done);
+      const isPastDone = slotBaseDate(s.id)<todayStr && tasks.every(isTaskDoneEffective);
       (isPastDone ? past : upcoming).push(s);
     });
     if(upcoming.length>0){
