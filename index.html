@@ -327,6 +327,43 @@ td.cc.inactive { cursor: default; }
 .mat-task-head .tc-meta { margin-top: 4px; }
 .mat-copy-btn { border: 1px solid var(--border); font-weight: 700; white-space: nowrap; flex-shrink: 0; }
 
+/* ── Wekelijks materiaaloverzicht (piekbehoefte) ── */
+.mat-intro { font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+.mat-week { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+.mat-week-title { font-size: 13px; font-weight: 800; margin-bottom: 8px; }
+.mat-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.mat-pill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); }
+.mat-pill.warn { background: rgba(239,83,80,.15); border-color: rgba(239,83,80,.4); color: var(--rw); }
+.mat-ro-extra { margin-top: 8px; color: var(--muted); font-size: 12px; }
+
+/* ── Conflictwaarschuwingen ── */
+.mat-conflict-warning { background: rgba(239,83,80,.12); border: 1px solid rgba(239,83,80,.35); color: var(--rw); border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+.conflict-banner { background: rgba(255,167,38,.1); border: 1px solid rgba(255,167,38,.35); border-radius: 9px; padding: 10px 14px; margin-bottom: 14px; }
+.conflict-title { font-weight: 800; font-size: 13px; color: var(--yellow); margin-bottom: 6px; }
+.conflict-list { list-style: none; margin: 0; padding: 0; font-size: 12px; line-height: 1.8; }
+.conflict-list li { cursor: pointer; color: var(--text); }
+.conflict-list li:hover { color: var(--accent); }
+
+/* ── Takenoverzicht filterbalk ── */
+.task-filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.task-filter-bar input, .task-filter-bar select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 7px 10px; font-size: 12px; font-family: inherit; outline: none; }
+.task-filter-bar input[type=text] { flex: 1; min-width: 160px; }
+.task-filter-bar input:focus, .task-filter-bar select:focus { border-color: var(--accent); }
+
+/* ── Planning grid toolbar ── */
+.grid-toolbar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+.grid-toolbar select, .grid-toolbar button { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 6px 10px; font-size: 12px; font-family: inherit; cursor: pointer; outline: none; }
+.grid-toolbar select:focus, .grid-toolbar button:hover { border-color: var(--accent); }
+.grid-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+/* ── Notities checklist ── */
+.note-add-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.note-add-row input[type=text] { flex: 1; min-width: 160px; }
+.note-add-row input, .note-add-row button { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 7px 10px; font-size: 12px; font-family: inherit; outline: none; }
+.note-add-row input:focus { border-color: var(--accent); }
+.note-add-row button { cursor: pointer; font-weight: 800; }
+.note-date { color: var(--muted); font-size: 11px; font-weight: 400; }
+
 /* ── MOBILE (telefoon/tablet) ── */
 @media (max-width: 860px) {
   .panel {
@@ -343,7 +380,21 @@ td.cc.inactive { cursor: default; }
   header { padding: 8px 10px; gap: 8px; }
   .legend { display: none; }
   .logo { font-size: 13px; }
+  .sidebar { width: 54px; }
+  .nav-item { padding: 8px 2px; font-size: 8px; }
+  .nav-item .ni-icon { font-size: 16px; }
+  .view-page { padding: 12px; overflow-x: auto; }
+  .home-grid, .fcard-grid, .stat-card-grid, .hours-grid { grid-template-columns: 1fr; }
+  .grid-toolbar { flex-wrap: wrap; }
+  .task-filter-bar { flex-direction: column; align-items: stretch; }
+  .task-filter-bar input, .task-filter-bar select { width: 100%; }
+  .note-add-row { flex-direction: column; align-items: stretch; }
+  .note-add-row input, .note-add-row button { width: 100%; }
+  .col-label { width: 110px; min-width: 110px; max-width: 110px; }
+  th.dh { min-width: 50px; width: 50px; }
+  #notesArea { min-height: 40vh; }
 }
+
 </style>
 </head>
 <body>
@@ -428,8 +479,14 @@ td.cc.inactive { cursor: default; }
     <div class="stats-bar" id="statsBar"></div>
     <div class="view-page active" id="view-home"></div>
     <div class="main" id="view-crew">
-      <div class="grid-wrap" id="gridWrap">
-        <table id="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+      <div class="grid-col">
+        <div class="grid-toolbar">
+          <button class="btn-sec" onclick="jumpToToday()" title="Spring naar vandaag in de planning">📍 Vandaag</button>
+          <select id="crewFilterSelect" onchange="onCrewFilterChange()" title="Toon enkel rijen voor een team of persoon"></select>
+        </div>
+        <div class="grid-wrap" id="gridWrap">
+          <table id="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+        </div>
       </div>
       <div class="panel" id="panel">
         <div class="ph">
@@ -675,7 +732,7 @@ const SYNC = {
   apiKey: '$2a$10$iiFDK.OPrJBT.uKNd4Repufy7Eu9KryV42t3zOKl7jCw4lMEelWt6',
 };
 
-function emptyData() { return { tasks:{}, overrides:{}, notes:'', updatedAt:0 }; }
+function emptyData() { return { tasks:{}, overrides:{}, notes:'', notesList:[], updatedAt:0 }; }
 
 function loadData() {
   try {
@@ -722,6 +779,48 @@ function saveTasksForSlot(slotId, tasks) {
 // ── Notities ──
 function getNotes() { return APP_DATA.notes || ''; }
 function setNotes(v) { APP_DATA.notes = v; saveData(); }
+
+// ── Notities-checklist ──
+function getNotesList() { return APP_DATA.notesList || []; }
+function setNotesList(list) { APP_DATA.notesList = list; saveData(); }
+function addNoteItem(text, date) {
+  if(!text || !text.trim()) return;
+  const list = getNotesList();
+  list.push({ id:'n'+Date.now()+Math.random().toString(36).slice(2,7), title:text.trim(), date:date||'', done:false });
+  setNotesList(list);
+  renderNotesView();
+}
+function toggleNoteItem(id) {
+  const list = getNotesList();
+  const it = list.find(x=>x.id===id);
+  if(it){ it.done = !it.done; setNotesList(list); renderNotesView(); }
+}
+function deleteNoteItem(id) {
+  setNotesList(getNotesList().filter(x=>x.id!==id));
+  renderNotesView();
+}
+function renderNoteItem(it) {
+  return `<div class="subitem">
+    <div class="subcheck ${it.done?'done':''}" onclick="toggleNoteItem('${it.id}')">${it.done?'✓':''}</div>
+    <div class="subtitle ${it.done?'done':''}">${esc(it.title)}${it.date?` <span class="note-date">${esc(fmtHomeDate(it.date))}</span>`:''}</div>
+    <button class="sub-del" onclick="deleteNoteItem('${it.id}')" title="Verwijderen">✕</button>
+  </div>`;
+}
+function renderNoteAddRow() {
+  return `<div class="note-add-row">
+    <input type="text" id="newNoteText" placeholder="Nieuwe notitie..." onkeydown="if(event.key==='Enter') submitNoteAddRow()">
+    <input type="date" id="newNoteDate">
+    <button onclick="submitNoteAddRow()">+ Toevoegen</button>
+  </div>`;
+}
+function submitNoteAddRow() {
+  const textEl = document.getElementById('newNoteText');
+  const dateEl = document.getElementById('newNoteDate');
+  const text = textEl ? textEl.value : '';
+  const date = dateEl ? dateEl.value : '';
+  if(!text.trim()) return;
+  addNoteItem(text, date);
+}
 
 // ── Backup export ──
 // Downloadt alle taken, notities en aanwezigheid-aanpassingen als JSON-bestand.
@@ -851,6 +950,7 @@ function reRenderCurrentView() {
   if(currentView==='home'){ renderHomeView(); }
   else if(currentView==='crew'){ renderTable(); if(selectedSlot) renderPanelBody(selectedSlot); }
   else if(currentView==='tasks'){ renderTasksOverview(); }
+  else if(currentView==='materiaal'){ renderMaterialsOverview(); }
   else if(currentView==='freelancers'){ renderFreelancersOverview(); }
   else if(currentView==='stats'){ renderStatsView(); }
   else if(currentView==='notes'){ renderNotesView(); }
@@ -868,6 +968,12 @@ let editingTaskId = null;
 let tvAddingTask = false; // "+ Nieuwe taak" form open in Takenoverzicht
 let tvNewTaskDay = null;  // geselecteerde dag voor nieuwe taak in Takenoverzicht
 let today = new Date().toISOString().slice(0,10);
+let crewRowFilter = '';   // filter op team/persoon in de Planning-grid ('' = alle rijen)
+let tvSearchQuery = '';   // zoekterm in Takenoverzicht
+let tvFilterAssignee = ''; // filter op verantwoordelijke in Takenoverzicht
+let tvFilterStatus = '';   // filter op status in Takenoverzicht
+let tvFilterPrio = '';     // filter op prioriteit in Takenoverzicht
+let materialsShowWeekly = true; // toon wekelijks materiaaloverzicht (piekbehoefte)
 
 // ═══════════════════════════════════════════════════════
 // HELPERS
@@ -964,10 +1070,56 @@ function renderTable() {
 
   tbody.innerHTML = rows;
   updateStats();
+  applyCrewFilter();
+}
+
+// ═══════════════════════════════════════════════════════
+// PLANNING-TOOLBAR: "Vandaag"-knop + team/persoon-filter
+// ═══════════════════════════════════════════════════════
+function jumpToToday() {
+  const slot = SCHEDULE.find(s=>slotBaseDate(s.id)===today);
+  if(!slot){ alert('Geen planningsdata gevonden voor vandaag.'); return; }
+  if(slot.phase!==currentPhase){
+    currentPhase = slot.phase;
+    document.querySelectorAll('.ptab[data-phase]').forEach(b=>b.classList.toggle('active', b.dataset.phase===currentPhase));
+    renderTable();
+  }
+  setTimeout(()=>{
+    const todayTh = document.querySelector('th.dh.today');
+    if(todayTh) todayTh.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+  },50);
+}
+
+function crewFilterOptionsHtml() {
+  let opts = '<option value="">— Alle rijen —</option>';
+  opts += `<option value="anton" ${crewRowFilter==='anton'?'selected':''}>Anton</option>`;
+  opts += `<option value="ae" ${crewRowFilter==='ae'?'selected':''}>All Events</option>`;
+  opts += `<option value="rw" ${crewRowFilter==='rw'?'selected':''}>Radarwerk</option>`;
+  opts += `<option value="tw" ${crewRowFilter==='tw'?'selected':''}>Team Wauw</option>`;
+  FREELANCERS.forEach(f=>{ opts += `<option value="${f.key}" ${crewRowFilter===f.key?'selected':''}>${esc(f.name)}</option>`; });
+  return opts;
+}
+
+function initCrewFilter() {
+  const sel = document.getElementById('crewFilterSelect');
+  if(sel) sel.innerHTML = crewFilterOptionsHtml();
+}
+
+function onCrewFilterChange() {
+  crewRowFilter = document.getElementById('crewFilterSelect')?.value || '';
+  applyCrewFilter();
+}
+
+function applyCrewFilter() {
+  document.querySelectorAll('#tbody tr').forEach(tr=>{
+    if(!crewRowFilter){ tr.style.display=''; return; }
+    if(tr.classList.contains('sec')){ tr.style.display='none'; return; }
+    tr.style.display = (tr.dataset.rowGroup===crewRowFilter) ? '' : 'none';
+  });
 }
 
 function antonRow(slots) {
-  let r = `<tr><td class="col-label"><span class="rl-name" style="color:#a78bfa">Anton</span><br><span class="rl-role" style="color:#7c6fcd">Productie Specials</span></td>`;
+  let r = `<tr data-row-group="anton"><td class="col-label"><span class="rl-name" style="color:#a78bfa">Anton</span><br><span class="rl-role" style="color:#7c6fcd">Productie Specials</span></td>`;
   slots.forEach(s=>{
     const isSel = selectedSlot===s.id;
     const nightCls = s.night?' night-bg':'';
@@ -992,7 +1144,7 @@ function sectionRow(title, slots, key) {
 }
 
 function crewRow(label, slots, group, field, cls) {
-  let r = `<tr><td class="col-label"><span class="rl-name" style="color:var(--${cls})">${label}</span></td>`;
+  let r = `<tr data-row-group="${group}"><td class="col-label"><span class="rl-name" style="color:var(--${cls})">${label}</span></td>`;
   slots.forEach(s=>{
     const val = s[group] ? (s[group][field] ?? null) : null;
     const isSel = selectedSlot===s.id;
@@ -1008,7 +1160,7 @@ function crewRow(label, slots, group, field, cls) {
 }
 
 function freelancerRow(f, slots) {
-  let r = `<tr><td class="col-label"><span class="rl-name">${f.name}</span><br><span class="rl-role">${f.role}</span></td>`;
+  let r = `<tr data-row-group="${f.key}"><td class="col-label"><span class="rl-name">${f.name}</span><br><span class="rl-role">${f.role}</span></td>`;
   slots.forEach(s=>{
     const isSel = selectedSlot===s.id;
     const nightCls = s.night?' night-bg':'';
@@ -1251,6 +1403,122 @@ const MATERIAL_ITEMS = [
 let materialsOpenIds = new Set(); // taakIds waarvan materiaalpaneel open staat (UI state, niet opgeslagen)
 let materialsShowPast = false; // toon "Verleden"-sectie in materiaaloverzicht (UI state, niet opgeslagen)
 let tasksShowPast = false; // toon "Verleden"-sectie in takenoverzicht (UI state, niet opgeslagen)
+
+// ── Materiaal-conflictdetectie (>5 van hetzelfde type op één dag) ──
+const MATERIAL_CONFLICT_THRESHOLD = 5;
+
+function getMaterialTotalsForDay(slotId) {
+  const tasks = getTasksForSlot(slotId);
+  const totals = {};
+  tasks.forEach(t=>{
+    const mat = t.materials || {items:{}, extra:''};
+    MATERIAL_ITEMS.forEach(m=>{
+      const q = getMaterialQty(mat, m.key);
+      if(q>0) totals[m.key] = (totals[m.key]||0) + q;
+    });
+  });
+  return totals;
+}
+
+function getMaterialConflicts(slotId) {
+  const totals = getMaterialTotalsForDay(slotId);
+  return Object.keys(totals)
+    .filter(k=>totals[k] > MATERIAL_CONFLICT_THRESHOLD)
+    .map(k=>({ key:k, label:(MATERIAL_ITEMS.find(m=>m.key===k)||{}).label||k, qty:totals[k] }));
+}
+
+function materialConflictWarningHtml(slotId) {
+  const conflicts = getMaterialConflicts(slotId);
+  if(conflicts.length===0) return '';
+  const parts = conflicts.map(c=>`${esc(c.label)}: ${c.qty}x nodig (>${MATERIAL_CONFLICT_THRESHOLD})`).join(', ');
+  return `<div class="mat-conflict-warning">⚠️ Materiaalconflict — ${parts}</div>`;
+}
+
+// ── Wekelijks materiaaloverzicht (piekbehoefte per week, ma–zo + ISO weeknummer) ──
+function toLocalISO(dt) {
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+}
+function isoWeekNumber(dt) {
+  const d = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+  const dayNum = d.getDay() || 7; // 1=ma..7=zo
+  d.setDate(d.getDate() + 4 - dayNum); // naar donderdag van deze week
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+function getWeekKey(dateStr) {
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  const day = dt.getDay(); // 0=zo..6=za
+  const diff = (day===0 ? -6 : 1-day); // terug naar maandag
+  dt.setDate(dt.getDate()+diff);
+  return toLocalISO(dt); // blijft lokale datum (geen UTC-verschuiving)
+}
+function fmtWeekLabel(weekStart) {
+  const [y,m,d] = weekStart.split('-').map(Number);
+  const start = new Date(y, m-1, d);
+  const end = new Date(start); end.setDate(end.getDate()+6);
+  const f = dt=>`${dt.getDate()}/${dt.getMonth()+1}`;
+  return `Week ${isoWeekNumber(start)} · ${f(start)} – ${f(end)}`;
+}
+function uniqueDatesForPhase(pkey) {
+  const set = new Set();
+  SCHEDULE.filter(s=>s.phase===pkey).forEach(s=>set.add(slotBaseDate(s.id)));
+  return [...set].sort();
+}
+
+function renderWeeklyMaterialsOverview() {
+  let html = '<div class="mat-intro">Piekbehoefte per materiaal: het maximum dat op één dag binnen die week tegelijk nodig is, gebaseerd op de toegewezen taken.</div>';
+  const phases = [['opbouw','Opbouw'],['show','Show'],['afbouw','Afbouw']];
+  let any = false;
+  phases.forEach(([pkey,plabel])=>{
+    const dates = uniqueDatesForPhase(pkey);
+    if(dates.length===0) return;
+    const weeks = {};
+    dates.forEach(d=>{ (weeks[getWeekKey(d)] = weeks[getWeekKey(d)]||[]).push(d); });
+    let phaseHtml = '';
+    Object.keys(weeks).sort().forEach(wk=>{
+      const dayTotals = {};
+      const extras = new Set();
+      weeks[wk].forEach(d=>{
+        const dayTotal = {};
+        SCHEDULE.filter(s=>slotBaseDate(s.id)===d).forEach(s=>{
+          getTasksForSlot(s.id).forEach(t=>{
+            const mat = t.materials||{};
+            Object.keys(mat.items||{}).forEach(k=>{
+              const q = getMaterialQty(mat,k);
+              if(q>0) dayTotal[k] = (dayTotal[k]||0)+q;
+            });
+            if(mat.extra && mat.extra.trim()) extras.add(mat.extra.trim());
+          });
+        });
+        Object.keys(dayTotal).forEach(k=>{ (dayTotals[k]=dayTotals[k]||[]).push(dayTotal[k]); });
+      });
+      const keys = Object.keys(dayTotals);
+      if(keys.length===0 && extras.size===0) return;
+      let pillsHtml = keys.map(k=>{
+        const peak = Math.max(...dayTotals[k]);
+        const label = (MATERIAL_ITEMS.find(m=>m.key===k)||{label:k}).label;
+        const warn = peak > MATERIAL_CONFLICT_THRESHOLD;
+        return `<span class="mat-pill${warn?' warn':''}">${esc(label)}: ${peak}x${warn?' ⚠️':''}</span>`;
+      }).join('');
+      phaseHtml += `<div class="mat-week"><div class="mat-week-title">${fmtWeekLabel(wk)}</div>
+        ${pillsHtml?`<div class="mat-pills">${pillsHtml}</div>`:''}
+        ${extras.size?`<div class="mat-ro-extra">Extra: ${esc([...extras].join(', '))}</div>`:''}
+      </div>`;
+    });
+    if(phaseHtml){
+      any = true;
+      html += `<div class="sec-title"><h3>${plabel}</h3></div>${phaseHtml}`;
+    }
+  });
+  if(!any) html += '<div class="empty-msg">Nog geen materiaal toegewezen aan taken.</div>';
+  return html;
+}
+
+function toggleMaterialsWeekly() {
+  materialsShowWeekly = !materialsShowWeekly;
+  renderMaterialsOverview();
+}
 
 // ── Ploeg sitecrew toewijzing ──
 const TEAM_SECTIONS = [
@@ -2035,6 +2303,8 @@ function renderHomeSlot(slot) {
   }
   html += '</div>';
 
+  html += materialConflictWarningHtml(slot.id);
+
   // ── Taken ──
   const tasks = getTasksForSlot(slot.id);
   if(tasks.length===0){
@@ -2050,10 +2320,80 @@ function renderHomeSlot(slot) {
 }
 
 // ── Takenoverzicht ──
+// ── Conflictdetectie crew (afwezig maar toegewezen / dubbel ingepland) ──
+function getCrewConflicts() {
+  const all = loadTasks();
+  const conflicts = [];
+
+  // (a) toegewezen aan iemand die afwezig is op die dag
+  SCHEDULE.forEach(s=>{
+    const tasks = (all[s.id]||[]).filter(t=>!isTaskDoneEffective(t));
+    const date = slotBaseDate(s.id);
+    const dayLabel = `${s.label}${s.slot?' — '+s.slot:''}`;
+    tasks.forEach(t=>{
+      if(!t.assignee) return;
+      if(t.assignee==='Anton'){
+        if(ANTON[date]!==1){
+          conflicts.push({ slotId:s.id, label:`${dayLabel}: "${t.title}" → Anton is afwezig deze dag` });
+        }
+      } else if(t.assignee==='All Events TL' || t.assignee==='Radarwerk TL'){
+        // teamtoewijzingen worden niet per persoon getoetst
+      } else {
+        const f = FREELANCERS.find(fr=>fr.name===t.assignee);
+        if(f){
+          const fl = s.fl||{};
+          if(fl[f.key]!==1){
+            conflicts.push({ slotId:s.id, label:`${dayLabel}: "${t.title}" → ${f.name} is niet ingepland deze dag` });
+          }
+        }
+      }
+    });
+  });
+
+  // (b) dezelfde persoon op meerdere slots dezelfde dag (dubbel ingepland)
+  const byDateAssignee = {};
+  SCHEDULE.forEach(s=>{
+    const date = slotBaseDate(s.id);
+    const tasks = (all[s.id]||[]).filter(t=>!isTaskDoneEffective(t));
+    tasks.forEach(t=>{
+      if(!t.assignee) return;
+      const key = date+'|'+t.assignee;
+      if(!byDateAssignee[key]) byDateAssignee[key] = [];
+      byDateAssignee[key].push({ slotId:s.id, title:t.title, label:`${s.label}${s.slot?' — '+s.slot:''}` });
+    });
+  });
+  Object.entries(byDateAssignee).forEach(([key, items])=>{
+    const slotIds = new Set(items.map(i=>i.slotId));
+    if(slotIds.size>1){
+      const assignee = key.split('|')[1];
+      const desc = items.map(i=>`"${i.title}" (${i.label})`).join(', ');
+      conflicts.push({ slotId:items[0].slotId, label:`${assignee} dubbel ingepland: ${desc}` });
+    }
+  });
+
+  return conflicts;
+}
+
+function renderConflictsBanner() {
+  const conflicts = getCrewConflicts();
+  if(conflicts.length===0) return '';
+  let html = `<div class="conflict-banner">
+    <div class="conflict-title">⚠️ ${conflicts.length} crewconflict${conflicts.length>1?'en':''} gevonden</div>
+    <ul class="conflict-list">`;
+  conflicts.forEach(c=>{
+    html += `<li onclick="goToSlot('${c.slotId}')">${esc(c.label)}</li>`;
+  });
+  html += `</ul></div>`;
+  return html;
+}
+
 function renderTasksOverview() {
   const all = loadTasks();
   const todayStr = new Date().toISOString().slice(0,10);
   let html = `<div class="sec-title"><h2 style="margin-bottom:0">Takenoverzicht</h2><button class="btn-primary" onclick="showNewTaskForm()">+ Nieuwe taak</button></div>`;
+
+  html += renderConflictsBanner();
+  html += renderTasksFilterBar(all);
 
   if(tvAddingTask){ html += renderNewTaskForm(); }
 
@@ -2069,29 +2409,32 @@ function renderTasksOverview() {
     return h;
   };
 
+  let totalTasks = 0;
+  Object.values(all).forEach(arr=>{ totalTasks += (arr||[]).length; });
+
   const phases = [['opbouw','Opbouw'],['show','Show'],['afbouw','Afbouw']];
   let any = false;
   let pastHtml = '';
   let anyPast = false;
   phases.forEach(([pkey,plabel])=>{
-    const slots = SCHEDULE.filter(s=>s.phase===pkey && (all[s.id]||[]).length>0);
+    const slots = SCHEDULE.filter(s=>s.phase===pkey && (all[s.id]||[]).some(taskMatchesFilters));
     if(slots.length===0) return;
     const upcoming = [];
     const past = [];
     slots.forEach(s=>{
-      const tasks = all[s.id]||[];
+      const tasks = (all[s.id]||[]).filter(taskMatchesFilters);
       const isPastDone = slotBaseDate(s.id)<todayStr && tasks.every(isTaskDoneEffective);
       (isPastDone ? past : upcoming).push(s);
     });
     if(upcoming.length>0){
       any = true;
       html += `<div class="sec-title"><h3>${plabel}</h3></div>`;
-      upcoming.forEach(s=>{ html += renderDayBlock(s, all[s.id]||[]); });
+      upcoming.forEach(s=>{ html += renderDayBlock(s, (all[s.id]||[]).filter(taskMatchesFilters)); });
     }
     if(past.length>0){
       anyPast = true;
       pastHtml += `<div class="sec-title"><h3>${plabel}</h3></div>`;
-      past.forEach(s=>{ pastHtml += renderDayBlock(s, all[s.id]||[]); });
+      past.forEach(s=>{ pastHtml += renderDayBlock(s, (all[s.id]||[]).filter(taskMatchesFilters)); });
     }
   });
 
@@ -2101,7 +2444,13 @@ function renderTasksOverview() {
     if(tasksShowPast) html += `<div class="materials-panel">${pastHtml}</div>`;
   }
 
-  if(!any && !tvAddingTask) html += '<div class="empty-msg">Nog geen taken aangemaakt.<br>Klik op "+ Nieuwe taak" om er een toe te voegen.</div>';
+  if(!any && !tvAddingTask){
+    if(totalTasks>0 && tasksFilterActive()){
+      html += '<div class="empty-msg">Geen taken gevonden voor deze filter(s).</div>';
+    } else {
+      html += '<div class="empty-msg">Nog geen taken aangemaakt.<br>Klik op "+ Nieuwe taak" om er een toe te voegen.</div>';
+    }
+  }
   document.getElementById('view-tasks').innerHTML = html;
 
   if(tvAddingTask){ setTimeout(()=>document.getElementById('ntf-title')?.focus(),50); }
@@ -2109,6 +2458,76 @@ function renderTasksOverview() {
 
 function toggleTasksPast() {
   tasksShowPast = !tasksShowPast;
+  renderTasksOverview();
+}
+
+// ── Filter/zoekbalk Takenoverzicht ──
+function taskMatchesFilters(t) {
+  if(tvFilterAssignee && (t.assignee||'')!==tvFilterAssignee) return false;
+  if(tvFilterStatus && getStatus(t)!==tvFilterStatus) return false;
+  if(tvFilterPrio && (t.priority||'')!==tvFilterPrio) return false;
+  if(tvSearchQuery){
+    const q = tvSearchQuery.trim().toLowerCase();
+    if(q){
+      const subtitles = (t.subtasks||[]).map(st=>st.title||'');
+      const hay = [t.title||'', t.notes||'', t.assignee||'', ...subtitles].join(' ').toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+  }
+  return true;
+}
+
+function tasksFilterActive() {
+  return !!(tvSearchQuery.trim() || tvFilterAssignee || tvFilterStatus || tvFilterPrio);
+}
+
+function renderTasksFilterBar(all) {
+  const assignees = new Set();
+  Object.values(all).forEach(arr=>(arr||[]).forEach(t=>{ if(t.assignee) assignees.add(t.assignee); }));
+  const assigneeList = Array.from(assignees).sort((a,b)=>a.localeCompare(b,'nl'));
+  let assigneeOpts = `<option value="">Alle verantwoordelijken</option>`;
+  assigneeList.forEach(a=>{ assigneeOpts += `<option value="${esc(a)}" ${tvFilterAssignee===a?'selected':''}>${esc(a)}</option>`; });
+
+  let html = `<div class="task-filter-bar">
+    <input type="text" id="tvSearch" placeholder="🔍 Zoek op titel, notities, naam..." value="${esc(tvSearchQuery)}" oninput="onTasksFilterChange()">
+    <select id="tvAssignee" onchange="onTasksFilterChange()">${assigneeOpts}</select>
+    <select id="tvStatus" onchange="onTasksFilterChange()">
+      <option value="">Alle statussen</option>
+      <option value="todo" ${tvFilterStatus==='todo'?'selected':''}>Te doen</option>
+      <option value="bezig" ${tvFilterStatus==='bezig'?'selected':''}>Bezig</option>
+      <option value="done" ${tvFilterStatus==='done'?'selected':''}>Klaar</option>
+    </select>
+    <select id="tvPrio" onchange="onTasksFilterChange()">
+      <option value="">Alle prioriteiten</option>
+      <option value="Laag" ${tvFilterPrio==='Laag'?'selected':''}>Laag</option>
+      <option value="Middel" ${tvFilterPrio==='Middel'?'selected':''}>Middel</option>
+      <option value="Hoog" ${tvFilterPrio==='Hoog'?'selected':''}>Hoog</option>
+    </select>`;
+  if(tasksFilterActive()) html += `<button class="btn-sec" onclick="resetTasksFilters()">✕ Wis filters</button>`;
+  html += `</div>`;
+  return html;
+}
+
+function onTasksFilterChange() {
+  const searchEl = document.getElementById('tvSearch');
+  const wasFocused = document.activeElement === searchEl;
+  const cursorPos = searchEl ? searchEl.selectionStart : null;
+  tvSearchQuery = searchEl ? searchEl.value : '';
+  tvFilterAssignee = document.getElementById('tvAssignee')?.value || '';
+  tvFilterStatus = document.getElementById('tvStatus')?.value || '';
+  tvFilterPrio = document.getElementById('tvPrio')?.value || '';
+  renderTasksOverview();
+  if(wasFocused){
+    const newSearchEl = document.getElementById('tvSearch');
+    if(newSearchEl){
+      newSearchEl.focus();
+      if(cursorPos!=null) newSearchEl.setSelectionRange(cursorPos, cursorPos);
+    }
+  }
+}
+
+function resetTasksFilters() {
+  tvSearchQuery=''; tvFilterAssignee=''; tvFilterStatus=''; tvFilterPrio='';
   renderTasksOverview();
 }
 
@@ -2246,12 +2665,16 @@ function renderMaterialsOverview() {
   const todayStr = new Date().toISOString().slice(0,10);
   let html = '<h2>Materiaalchecklist</h2>';
 
+  html += `<div class="materials-toggle" onclick="toggleMaterialsWeekly()">🗓️ Wekelijks overzicht (piekbehoefte) <span class="mat-arrow">${materialsShowWeekly?'▾':'▸'}</span></div>`;
+  if(materialsShowWeekly) html += `<div class="materials-panel">${renderWeeklyMaterialsOverview()}</div>`;
+
   const renderDayBlock = (s, tasks) => {
     let h = `<div class="mat-day-block">
         <div class="task-overview-day-row">
           <div class="task-overview-day" onclick="goToSlot('${s.id}')">${s.label}${s.slot?' — '+s.slot:''} <span class="toh">↗ open in planning</span></div>
           <button class="btn-icon mat-copy-btn" onclick="copyMaterialsForDay('${s.id}', this)" title="Kopieer materiaallijst naar klembord">📋 Kopieer</button>
-        </div>`;
+        </div>
+        ${materialConflictWarningHtml(s.id)}`;
     tasks.forEach(t=>{ h += renderMaterialsTaskRow(s.id, t); });
     h += '</div>';
     return h;
@@ -2388,7 +2811,30 @@ function renderMaterialsTaskRow(slotId, t) {
 
 // ── Freelancer-overzicht ──
 function renderFreelancersOverview() {
-  let html = '<h2>Freelancer-overzicht</h2><div class="fcard-grid">';
+  let html = '<h2>Freelancer-overzicht</h2>';
+
+  // Samenvattingstabel: totaal ingezette dagen per freelancer
+  const summary = FREELANCERS.map(f=>{
+    let aanwezig=0, optie=0;
+    SCHEDULE.forEach(s=>{
+      const v = (s.fl||{})[f.key];
+      if(v===1) aanwezig++;
+      else if(v===-1) optie++;
+    });
+    return { f, aanwezig, optie, totaal: aanwezig+optie };
+  }).sort((a,b)=> b.aanwezig - a.aanwezig || a.f.name.localeCompare(b.f.name,'nl'));
+
+  let totAanwezig=0, totOptie=0;
+  html += `<table class="jo-table"><thead><tr><th>Naam</th><th>Rol</th><th>Aanwezig</th><th>Optie</th><th>Totaal</th></tr></thead><tbody>`;
+  summary.forEach(({f,aanwezig,optie,totaal})=>{
+    totAanwezig += aanwezig; totOptie += optie;
+    html += `<tr><td>${esc(f.name)}</td><td>${esc(f.role)}</td><td>${aanwezig}</td><td>${optie}</td><td><strong>${totaal}</strong></td></tr>`;
+  });
+  html += `<tr><td><strong>Totaal</strong></td><td></td><td><strong>${totAanwezig}</strong></td><td><strong>${totOptie}</strong></td><td><strong>${totAanwezig+totOptie}</strong></td></tr>`;
+  html += `</tbody></table>`;
+
+  html += '<div class="sec-title"><h3>Detail per freelancer</h3></div>';
+  html += '<div class="fcard-grid">';
   FREELANCERS.forEach(f=>{
     const present = [], optie = [];
     SCHEDULE.forEach(s=>{
@@ -2453,10 +2899,28 @@ function renderStatsView() {
 // ── Notities ──
 function renderNotesView() {
   const notes = getNotes();
-  document.getElementById('view-notes').innerHTML = `
-    <h2>Notities <span class="warn-text">GEEN GEVOELIGE INFO/ CODES HIER NOTEREN</span></h2>
-    <textarea id="notesArea" placeholder="Vrije notities, to-do's, ideeën...">${esc(notes)}</textarea>
-  `;
+  const list = getNotesList();
+  const sorted = [...list].sort((a,b)=>{
+    if(a.done!==b.done) return a.done?1:-1;
+    if(a.date && b.date) return a.date<b.date?-1:a.date>b.date?1:0;
+    if(a.date && !b.date) return -1;
+    if(!a.date && b.date) return 1;
+    return 0;
+  });
+
+  let html = `<h2>Notities <span class="warn-text">GEEN GEVOELIGE INFO/ CODES HIER NOTEREN</span></h2>`;
+  html += '<div class="sec-title"><h3>Checklist</h3></div>';
+  html += renderNoteAddRow();
+  if(sorted.length===0){
+    html += '<div class="empty-msg">Nog geen checklist-items.</div>';
+  } else {
+    html += '<div class="ti-wrap">' + sorted.map(renderNoteItem).join('') + '</div>';
+  }
+  html += '<div class="sec-title" style="margin-top:18px"><h3>Vrije notities</h3></div>';
+  html += `<textarea id="notesArea" placeholder="Vrije notities, to-do's, ideeën...">${esc(notes)}</textarea>`;
+
+  document.getElementById('view-notes').innerHTML = html;
+
   let saveTimer = null;
   document.getElementById('notesArea').addEventListener('input', e=>{
     clearTimeout(saveTimer);
@@ -2622,6 +3086,7 @@ if(activeTab){ activeTab.classList.add('active'); }
 else { document.querySelector('.ptab.op').classList.add('active'); }
 
 applyOverrides();
+initCrewFilter();
 renderTable();
 renderHomeView();
 renderOpeningCountdown();
