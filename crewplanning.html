@@ -233,6 +233,8 @@ td.cc.inactive { cursor: default; }
 .subtitle.bezig { color: var(--yellow); }
 .sub-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 11px; padding: 2px 4px; border-radius: 4px; line-height: 1; }
 .sub-del:hover { color: var(--text); background: var(--border); }
+.sub-move { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 11px; padding: 2px 4px; border-radius: 4px; line-height: 1; }
+.sub-move:hover { color: var(--text); background: var(--border); }
 .sub-add-row { display: flex; gap: 6px; margin-top: 2px; }
 .sub-add-row input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; color: var(--text); padding: 4px 8px; font-size: 12px; font-family: inherit; outline: none; }
 .sub-add-row input:focus { border-color: var(--accent); }
@@ -272,6 +274,26 @@ td.cc.inactive { cursor: default; }
 .modal-day-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); padding: 4px 6px; border-radius: 6px; cursor: pointer; }
 .modal-day-item:hover { background: var(--surface2); }
 .modal-day-item input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+.modal-cal { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; max-height: 56vh; overflow-y: auto; padding-right: 2px; }
+.cal-month-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal-dow { font-size: 10px; color: var(--muted); text-align: center; font-weight: 700; padding-bottom: 2px; }
+.cal-day { border-radius: 6px; min-height: 36px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; gap: 1px; box-sizing: border-box; }
+.cal-day.empty { visibility: hidden; }
+.cal-day-empty { color: var(--muted); opacity: .35; border: 1px dashed var(--border); }
+.cal-day-pick { cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text); transition: all .12s; }
+.cal-day-pick:hover { border-color: var(--accent); }
+.cal-day-pick input { display: none; }
+.cal-day-pick:has(input:checked) { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cal-daynum { font-weight: 700; font-size: 12px; }
+.cal-dayslot { font-size: 9px; opacity: .8; text-transform: uppercase; letter-spacing: .03em; }
+.cal-day-multi { border: 1px solid var(--border); padding: 3px 2px; justify-content: flex-start; }
+.cal-day-multi .cal-daynum { margin-bottom: 1px; }
+.cal-day-chips { display: flex; flex-direction: column; gap: 1px; width: 100%; }
+.cal-slot-chip { font-size: 8.5px; text-align: center; padding: 1px 2px; border-radius: 4px; background: var(--surface); border: 1px solid var(--border); cursor: pointer; line-height: 1.3; text-transform: uppercase; }
+.cal-slot-chip:hover { border-color: var(--accent); }
+.cal-slot-chip input { display: none; }
+.cal-slot-chip:has(input:checked) { background: var(--accent); border-color: var(--accent); color: #fff; }
 .empty-msg { text-align: center; color: var(--muted); font-size: 13px; padding: 22px 0; }
 </style>
 </head>
@@ -1103,6 +1125,7 @@ function renderTaskItem(slotId, t) {
     <div class="tc-actions">
       <button class="btn-icon" onclick="editTask('${slotId}','${t.id}')" title="Bewerk">✎</button>
       <button class="btn-icon" onclick="openCopyTaskModal('${slotId}','${t.id}')" title="Kopieer naar andere dagen">📅</button>
+      <button class="btn-icon" onclick="openMoveTaskModal('${slotId}','${t.id}')" title="Verplaats naar andere dag">➡️</button>
       <button class="btn-icon" onclick="deleteTask('${slotId}','${t.id}')" title="Verwijder">✕</button>
     </div>
   </div>`;
@@ -1272,6 +1295,7 @@ function renderSubtasksHtml(slotId, t) {
     html += `<div class="subitem">
       <div class="subcheck ${statusCls(s)}" onclick="toggleSubtask('${slotId}','${t.id}','${s.id}')">${statusIcon(s)}</div>
       <div class="subtitle ${statusCls(s)}">${esc(s.title)}</div>
+      <button class="sub-move" onclick="openMoveSubtaskModal('${slotId}','${t.id}','${s.id}')" title="Verplaats naar andere dag">➡️</button>
       <button class="sub-del" onclick="deleteSubtask('${slotId}','${t.id}','${s.id}')" title="Verwijder subtaak">✕</button>
     </div>`;
   });
@@ -1480,6 +1504,56 @@ function deleteTask(slotId, taskId) {
   renderTableHeaders();
 }
 
+// ── Kalenderweergave voor dag-selectie (kopiëren/verplaatsen) ──
+const CAL_MONTH_NAMES = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+const CAL_DOW_LABELS = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
+
+// excludeSlotId: deze slot wordt niet als optie getoond (de huidige dag/taak)
+// inputType: 'checkbox' (kopiëren, meerdere dagen) of 'radio' (verplaatsen, één dag)
+// inputName: name-attribuut voor de inputs (enkel relevant voor radio)
+function buildCalendarPickerHtml(excludeSlotId, inputType, inputName) {
+  const byDate = {};
+  SCHEDULE.forEach(s=>{
+    const date = slotBaseDate(s.id);
+    (byDate[date] = byDate[date] || []).push(s);
+  });
+  const dates = Object.keys(byDate).sort();
+  if(dates.length===0) return '';
+
+  const first = new Date(dates[0]+'T00:00:00');
+  const last = new Date(dates[dates.length-1]+'T00:00:00');
+  let y = first.getFullYear(), m = first.getMonth();
+  const endY = last.getFullYear(), endM = last.getMonth();
+
+  let html = '';
+  while(y < endY || (y===endY && m <= endM)){
+    const daysInMonth = new Date(y, m+1, 0).getDate();
+    const firstDow = (new Date(y, m, 1).getDay() + 6) % 7; // Maandag = 0
+    html += `<div class="cal-month"><div class="cal-month-label">${CAL_MONTH_NAMES[m]} ${y}</div><div class="cal-grid">`;
+    CAL_DOW_LABELS.forEach(d=>html += `<div class="cal-dow">${d}</div>`);
+    for(let i=0;i<firstDow;i++) html += `<div class="cal-day empty"></div>`;
+    for(let d=1; d<=daysInMonth; d++){
+      const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const slots = (byDate[dateStr]||[]).filter(s=>s.id!==excludeSlotId);
+      if(slots.length===0){
+        html += `<div class="cal-day cal-day-empty"><div class="cal-daynum">${d}</div></div>`;
+      } else if(slots.length===1){
+        const s = slots[0];
+        html += `<label class="cal-day cal-day-pick"><input type="${inputType}" name="${inputName}" value="${s.id}"><div class="cal-daynum">${d}</div>${s.slot?`<div class="cal-dayslot">${esc(s.slot)}</div>`:''}</label>`;
+      } else {
+        html += `<div class="cal-day cal-day-multi"><div class="cal-daynum">${d}</div><div class="cal-day-chips">`;
+        slots.forEach(s=>{
+          html += `<label class="cal-slot-chip"><input type="${inputType}" name="${inputName}" value="${s.id}">${esc(s.slot||s.label)}</label>`;
+        });
+        html += `</div></div>`;
+      }
+    }
+    html += `</div></div>`;
+    m++; if(m>11){ m=0; y++; }
+  }
+  return html;
+}
+
 // ── Taak kopiëren naar andere dagen ──
 let copyTaskCtx = null; // { slotId, taskId }
 
@@ -1489,21 +1563,10 @@ function openCopyTaskModal(slotId, taskId) {
   if(!t) return;
   copyTaskCtx = { slotId, taskId };
 
-  const phases = [['opbouw','Opbouw'],['show','Show'],['afbouw','Afbouw']];
   let html = `<div class="modal-overlay" id="copyTaskModal" onclick="if(event.target===this) closeCopyTaskModal()">
     <div class="modal-box">
       <h3>📅 "${esc(t.title)}" kopiëren naar...</h3>
-      <div class="modal-day-list">`;
-  phases.forEach(([pkey,plabel])=>{
-    const slots = SCHEDULE.filter(s=>s.phase===pkey);
-    if(slots.length===0) return;
-    html += `<div class="modal-phase-label">${plabel}</div>`;
-    slots.forEach(s=>{
-      if(s.id===slotId) return;
-      html += `<label class="modal-day-item"><input type="checkbox" value="${s.id}"> ${s.label}${s.slot?' — '+s.slot:''}</label>`;
-    });
-  });
-  html += `</div>
+      <div class="modal-cal">${buildCalendarPickerHtml(slotId,'checkbox','copyTarget')}</div>
       <div class="form-btns">
         <button class="btn-primary" onclick="confirmCopyTask()">Kopieer</button>
         <button class="btn-sec" onclick="closeCopyTaskModal()">Annuleer</button>
@@ -1546,6 +1609,201 @@ function confirmCopyTask() {
   closeCopyTaskModal();
   refreshTaskViews(slotId);
   alert(`Taak gekopieerd naar ${checked.length} dag${checked.length===1?'':'en'}.`);
+}
+
+// ── Taak verplaatsen naar andere dag ──
+let moveTaskCtx = null; // { slotId, taskId }
+
+function openMoveTaskModal(slotId, taskId) {
+  const tasks = getTasksForSlot(slotId);
+  const t = tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  moveTaskCtx = { slotId, taskId };
+
+  let html = `<div class="modal-overlay" id="moveTaskModal" onclick="if(event.target===this) closeMoveTaskModal()">
+    <div class="modal-box">
+      <h3>➡️ "${esc(t.title)}" verplaatsen naar...</h3>
+      <div class="modal-cal">${buildCalendarPickerHtml(slotId,'radio','moveTarget')}</div>
+      <div class="form-btns">
+        <button class="btn-primary" onclick="confirmMoveTask()">Verplaats</button>
+        <button class="btn-sec" onclick="closeMoveTaskModal()">Annuleer</button>
+      </div>
+    </div>
+  </div>`;
+
+  const div = document.createElement('div');
+  div.id = 'moveTaskModalWrap';
+  div.innerHTML = html;
+  document.body.appendChild(div);
+}
+
+function closeMoveTaskModal() {
+  document.getElementById('moveTaskModalWrap')?.remove();
+  moveTaskCtx = null;
+}
+
+function confirmMoveTask() {
+  if(!moveTaskCtx) return;
+  const { slotId, taskId } = moveTaskCtx;
+  const tasks = getTasksForSlot(slotId);
+  const idx = tasks.findIndex(x=>x.id===taskId);
+  if(idx===-1){ closeMoveTaskModal(); return; }
+
+  const checked = document.querySelector('#moveTaskModalWrap input[type=radio]:checked');
+  if(!checked){ closeMoveTaskModal(); return; }
+  const targetSlotId = checked.value;
+
+  const [t] = tasks.splice(idx,1);
+  saveTasksForSlot(slotId, tasks);
+
+  const targetTasks = getTasksForSlot(targetSlotId);
+  targetTasks.push(t);
+  saveTasksForSlot(targetSlotId, targetTasks);
+
+  closeMoveTaskModal();
+  refreshTaskViews(slotId);
+  const targetSlot = SCHEDULE.find(s=>s.id===targetSlotId);
+  alert(`Taak verplaatst naar ${targetSlot ? targetSlot.label + (targetSlot.slot?' — '+targetSlot.slot:'') : 'andere dag'}.`);
+}
+
+// ── Subtaak verplaatsen naar andere dag (wordt daar een nieuwe hoofdtaak) ──
+let moveSubtaskCtx = null; // { slotId, taskId, subId }
+
+function openMoveSubtaskModal(slotId, taskId, subId) {
+  const tasks = getTasksForSlot(slotId);
+  const t = tasks.find(x=>x.id===taskId);
+  const sub = t && (t.subtasks||[]).find(s=>s.id===subId);
+  if(!sub) return;
+  moveSubtaskCtx = { slotId, taskId, subId };
+
+  let html = `<div class="modal-overlay" id="moveSubtaskModal" onclick="if(event.target===this) closeMoveSubtaskModal()">
+    <div class="modal-box">
+      <h3>➡️ "${esc(sub.title)}" verplaatsen naar...</h3>
+      <div class="modal-cal">${buildCalendarPickerHtml(slotId,'radio','moveSubtaskTarget')}</div>
+      <div class="form-btns">
+        <button class="btn-primary" onclick="confirmMoveSubtask()">Verplaats</button>
+        <button class="btn-sec" onclick="closeMoveSubtaskModal()">Annuleer</button>
+      </div>
+    </div>
+  </div>`;
+
+  const div = document.createElement('div');
+  div.id = 'moveSubtaskModalWrap';
+  div.innerHTML = html;
+  document.body.appendChild(div);
+}
+
+function closeMoveSubtaskModal() {
+  document.getElementById('moveSubtaskModalWrap')?.remove();
+  moveSubtaskCtx = null;
+}
+
+function confirmMoveSubtask() {
+  if(!moveSubtaskCtx) return;
+  const { slotId, taskId, subId } = moveSubtaskCtx;
+  const tasks = getTasksForSlot(slotId);
+  const t = tasks.find(x=>x.id===taskId);
+  const sub = t && (t.subtasks||[]).find(s=>s.id===subId);
+  if(!sub){ closeMoveSubtaskModal(); return; }
+
+  const checked = document.querySelector('#moveSubtaskModalWrap input[type=radio]:checked');
+  if(!checked){ closeMoveSubtaskModal(); return; }
+  const targetSlotId = checked.value;
+  closeMoveSubtaskModal();
+
+  const targetTasks = getTasksForSlot(targetSlotId);
+  if(targetTasks.length === 0){
+    // Doeldag heeft nog geen taken: meteen een nieuwe taak aanmaken met deze subtaak erin.
+    finishMoveSubtask(slotId, taskId, subId, targetSlotId, '__new__');
+  } else {
+    // Doeldag heeft al taken: laat kiezen tussen nieuwe taak of toevoegen aan bestaande taak.
+    openMoveSubtaskTargetModal(slotId, taskId, subId, targetSlotId, t.title, targetTasks);
+  }
+}
+
+// ── Stap 2 bij subtaak verplaatsen: nieuwe taak of bestaande taak op de doeldag ──
+let moveSubtaskTargetCtx = null; // { slotId, taskId, subId, targetSlotId }
+
+function openMoveSubtaskTargetModal(slotId, taskId, subId, targetSlotId, parentTitle, targetTasks) {
+  moveSubtaskTargetCtx = { slotId, taskId, subId, targetSlotId };
+  const targetSlot = SCHEDULE.find(s=>s.id===targetSlotId);
+  const dayLabel = targetSlot ? targetSlot.label + (targetSlot.slot?' — '+targetSlot.slot:'') : 'die dag';
+
+  let html = `<div class="modal-overlay" id="moveSubtaskTargetModal" onclick="if(event.target===this) closeMoveSubtaskTargetModal()">
+    <div class="modal-box">
+      <h3>➡️ Toevoegen op ${esc(dayLabel)}</h3>
+      <div class="modal-day-list">
+        <label class="modal-day-item"><input type="radio" name="subtaskDest" value="__new__" checked> Nieuwe taak "${esc(parentTitle)}"</label>`;
+  targetTasks.forEach(tt=>{
+    html += `<label class="modal-day-item"><input type="radio" name="subtaskDest" value="${tt.id}"> Subtaak toevoegen aan "${esc(tt.title)}"</label>`;
+  });
+  html += `</div>
+      <div class="form-btns">
+        <button class="btn-primary" onclick="confirmMoveSubtaskTarget()">Verplaats</button>
+        <button class="btn-sec" onclick="closeMoveSubtaskTargetModal()">Annuleer</button>
+      </div>
+    </div>
+  </div>`;
+
+  const div = document.createElement('div');
+  div.id = 'moveSubtaskTargetModalWrap';
+  div.innerHTML = html;
+  document.body.appendChild(div);
+}
+
+function closeMoveSubtaskTargetModal() {
+  document.getElementById('moveSubtaskTargetModalWrap')?.remove();
+  moveSubtaskTargetCtx = null;
+}
+
+function confirmMoveSubtaskTarget() {
+  if(!moveSubtaskTargetCtx) return;
+  const { slotId, taskId, subId, targetSlotId } = moveSubtaskTargetCtx;
+  const checked = document.querySelector('#moveSubtaskTargetModalWrap input[type=radio]:checked');
+  const destTaskId = checked ? checked.value : '__new__';
+  closeMoveSubtaskTargetModal();
+  finishMoveSubtask(slotId, taskId, subId, targetSlotId, destTaskId);
+}
+
+// Verwijdert de subtaak op de bron-dag en voegt ze toe op de doeldag,
+// als subtaak van een nieuwe taak (__new__) of van een bestaande taak (destTaskId).
+function finishMoveSubtask(slotId, taskId, subId, targetSlotId, destTaskId) {
+  const tasks = getTasksForSlot(slotId);
+  const t = tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  const subIdx = (t.subtasks||[]).findIndex(s=>s.id===subId);
+  if(subIdx===-1) return;
+  const [sub] = t.subtasks.splice(subIdx,1);
+  saveTasksForSlot(slotId, tasks);
+
+  const targetTasks = getTasksForSlot(targetSlotId);
+  const destTask = destTaskId!=='__new__' ? targetTasks.find(x=>x.id===destTaskId) : null;
+  if(destTask){
+    if(!destTask.subtasks) destTask.subtasks = [];
+    destTask.subtasks.push(sub);
+  } else {
+    targetTasks.push({
+      id: Date.now().toString() + Math.random().toString(36).slice(2,7),
+      title: t.title,
+      assignee: '',
+      priority: 'Middel',
+      notes: '',
+      team: '',
+      teamCount: null,
+      done: false,
+      status: 'todo',
+      subtasks: [sub],
+      materials: {items:{}, extra:''}
+    });
+  }
+  saveTasksForSlot(targetSlotId, targetTasks);
+
+  refreshTaskViews(slotId);
+  const targetSlot = SCHEDULE.find(s=>s.id===targetSlotId);
+  const dayLabel = targetSlot ? targetSlot.label + (targetSlot.slot?' — '+targetSlot.slot:'') : 'andere dag';
+  alert(destTask
+    ? `Subtaak "${sub.title}" toegevoegd aan "${destTask.title}" op ${dayLabel}.`
+    : `Subtaak "${sub.title}" verplaatst naar ${dayLabel} als nieuwe taak.`);
 }
 
 // Only re-render headers (for badge updates without full redraw)
@@ -1874,6 +2132,7 @@ function renderTaskItemOverview(slotId, t) {
     <div class="tc-actions">
       <button class="btn-icon" onclick="goToSlot('${slotId}')" title="Open dag">↗</button>
       <button class="btn-icon" onclick="openCopyTaskModal('${slotId}','${t.id}')" title="Kopieer naar andere dagen">📅</button>
+      <button class="btn-icon" onclick="openMoveTaskModal('${slotId}','${t.id}')" title="Verplaats naar andere dag">➡️</button>
       <button class="btn-icon" onclick="deleteTask('${slotId}','${t.id}')" title="Verwijder">✕</button>
     </div>
   </div>`;
