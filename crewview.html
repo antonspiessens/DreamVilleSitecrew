@@ -66,6 +66,17 @@ header { flex-shrink: 0; background: var(--surface); border-bottom: 1px solid va
 .li { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
 .ld { width: 9px; height: 9px; border-radius: 50%; }
 #syncIndicator { font-size: 11px; }
+.ptab.mat.active { background: rgba(255,213,80,.2); color: var(--yellow); }
+.ptab.toggle.active { background: rgba(108,99,255,.2); color: var(--accent); }
+.filter-select { padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-family: inherit; letter-spacing: 0.03em; }
+.progress-pill { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 10px; background: rgba(76,175,80,.15); color: var(--green); border: 1px solid rgba(76,175,80,.3); margin-left: 8px; vertical-align: middle; }
+
+/* Materiaalplanning */
+.mat-week { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+.mat-week-title { font-size: 13px; font-weight: 800; margin-bottom: 8px; }
+.mat-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.mat-pill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); }
+.mat-intro { font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
 
 /* ── APP BODY / SIDEBAR ── */
 .app-body { flex: 1; display: flex; overflow: hidden; }
@@ -160,6 +171,12 @@ header { flex-shrink: 0; background: var(--surface); border-bottom: 1px solid va
   .legend { display: none; }
   .logo { font-size: 13px; }
 }
+@media (max-width: 600px) {
+  header { gap: 6px; }
+  .viewbadge { display: none; }
+  .filter-select { max-width: 120px; }
+  .home-grid { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
@@ -213,6 +230,7 @@ header { flex-shrink: 0; background: var(--surface); border-bottom: 1px solid va
   <div class="logo">DreamVille <span>2026</span> — Crewplanning</div>
   <span class="viewbadge">🔒 Weergave — alleen lezen</span>
   <button class="ptab" id="themeToggleBtn" onclick="toggleTheme()" title="Wissel lichte/donkere modus">🌙</button>
+  <button class="ptab" id="jumpTodayBtn" title="Ga naar vandaag">📍 Vandaag</button>
   <span id="openingCountdown" class="countdown"></span>
   <div class="phase-tabs" id="phaseTabs">
     <button class="ptab op" data-phase="opbouw">Opbouw</button>
@@ -221,7 +239,20 @@ header { flex-shrink: 0; background: var(--surface); border-bottom: 1px solid va
   </div>
   <div class="view-tabs">
     <button class="ptab tk" id="tasksTab">✅ Taken</button>
+    <button class="ptab mat" id="materialTab">🧰 Materiaal</button>
   </div>
+  <select class="filter-select" id="crewFilter" title="Filter op team of persoon">
+    <option value="all">👥 Iedereen</option>
+    <optgroup label="Team">
+      <option value="team:All Events">All Events</option>
+      <option value="team:Radarwerk">Radarwerk</option>
+      <option value="team:Team Wauw">Team Wauw</option>
+    </optgroup>
+    <optgroup label="Persoon" id="crewFilterPersons">
+      <option value="person:anton">Anton</option>
+    </optgroup>
+  </select>
+  <button class="ptab toggle" id="hideEmptyBtn" title="Verberg dagen zonder activiteit">🙈 Lege dagen</button>
   <span id="syncIndicator"></span>
   <div class="legend">
     <div class="li"><div class="ld" style="background:var(--ae)"></div> All Events</div>
@@ -595,8 +626,14 @@ function subtaskProgressHtml(t) {
 function renderSubtasksReadOnly(t) {
   const subs = t.subtasks||[];
   if(subs.length===0) return '';
+  // Open / bezig subtaken eerst, afgewerkte onderaan (volgorde binnen groep behouden)
+  const order = { todo:0, bezig:0, done:1 };
+  const sorted = subs.map((s,i)=>({s,i})).sort((a,b)=>{
+    const oa = order[getStatus(a.s)] ?? 0, ob = order[getStatus(b.s)] ?? 0;
+    return oa!==ob ? oa-ob : a.i-b.i;
+  }).map(x=>x.s);
   let html = '<div class="subtasks">';
-  subs.forEach(s=>{
+  sorted.forEach(s=>{
     html += `<div class="subitem">
       <div class="subcheck ${statusCls(s)}">${statusIcon(s)}</div>
       <div class="subtitle ${statusCls(s)}">${esc(s.title)}</div>
@@ -637,8 +674,57 @@ function renderTaskItemReadOnly(slotId, t) {
 // DAGKAARTEN
 // ═══════════════════════════════════════════════════════
 let todayStr = new Date().toISOString().slice(0,10);
+let currentFilter = 'all';
+let hideEmptyDays = false;
+
+// ── Filter helpers (team / persoon) ──
+function slotMatchesFilter(slot) {
+  if(currentFilter==='all') return true;
+  if(currentFilter.startsWith('team:')){
+    const team = currentFilter.slice(5);
+    if(team==='All Events') return !!slot.ae;
+    if(team==='Radarwerk') return !!slot.rw;
+    if(team==='Team Wauw') return !!slot.tw;
+    return false;
+  }
+  if(currentFilter.startsWith('person:')){
+    const key = currentFilter.slice(7);
+    if(key==='anton') return ANTON[slot.id]===1;
+    const fl = slot.fl||{};
+    return fl[key]===1 || fl[key]===-1;
+  }
+  return true;
+}
+// Heeft deze dag (één van de slots) crew-aanwezigheid of taken?
+function dayHasContent(dateStr) {
+  const slots = SCHEDULE.filter(s=>slotBaseDate(s.id)===dateStr);
+  return slots.some(s=>{
+    if(ANTON[s.id]===1) return true;
+    if(s.ae||s.rw||s.tw) return true;
+    const fl = s.fl||{};
+    if(Object.values(fl).some(v=>v===1||v===-1)) return true;
+    if(getTasksForSlot(s.id).length>0) return true;
+    return false;
+  });
+}
+// Voortgang (subtaken/taken) voor een fase
+function phaseProgress(phase) {
+  let total=0, done=0;
+  SCHEDULE.filter(s=>s.phase===phase).forEach(s=>{
+    getTasksForSlot(s.id).forEach(t=>{
+      const subs = t.subtasks||[];
+      if(subs.length){
+        subs.forEach(sub=>{ total++; if(getStatus(sub)==='done') done++; });
+      } else {
+        total++; if(getStatus(t)==='done') done++;
+      }
+    });
+  });
+  return {done, total};
+}
 
 function renderDaySlot(slot) {
+  if(!slotMatchesFilter(slot)) return '';
   let html = `<div class="home-slot">
     <div class="home-slot-head">${slot.label}${slot.slot?' — '+slot.slot:''}${slot.start?' · start '+slot.start+'u':''}</div>`;
 
@@ -676,7 +762,8 @@ function renderDaySlot(slot) {
 function renderDayCard(dateStr) {
   const slots = SCHEDULE.filter(s=>slotBaseDate(s.id)===dateStr);
   const isToday = dateStr===todayStr;
-  let body = slots.map(s=>renderDaySlot(s)).join('');
+  let body = slots.map(s=>renderDaySlot(s)).filter(Boolean).join('');
+  if(!body) return '';
   return `<div class="home-card ${isToday?'today':''}">
     <div class="home-card-head">
       <div class="home-card-title">${fmtHomeDate(dateStr)}${isToday?'<span class="today-pill">Vandaag</span>':''}</div>
@@ -718,15 +805,21 @@ function renderWorkingHoursCard() {
 }
 
 function renderPhase() {
-  const dates = uniqueDatesForPhase(currentPhase);
+  let dates = uniqueDatesForPhase(currentPhase);
+  if(hideEmptyDays) dates = dates.filter(d=>dayHasContent(d));
   let html = renderWorkingHoursCard();
-  html += `<h2>${PHASE_TITLES[currentPhase]}</h2>`;
+  const prog = phaseProgress(currentPhase);
+  html += `<h2>${PHASE_TITLES[currentPhase]}${prog.total?` <span class="progress-pill">✓ ${prog.done}/${prog.total} afgerond</span>`:''}</h2>`;
   if(dates.length===0){
     html += '<div class="empty-msg">Geen planningsdata voor deze fase.</div>';
   } else {
-    html += '<div class="home-grid">';
-    dates.forEach(d=>{ html += renderDayCard(d); });
-    html += '</div>';
+    let cardsHtml = '';
+    dates.forEach(d=>{ cardsHtml += renderDayCard(d); });
+    if(!cardsHtml){
+      html += '<div class="empty-msg">Geen dagen gevonden voor deze selectie.</div>';
+    } else {
+      html += `<div class="home-grid">${cardsHtml}</div>`;
+    }
   }
   document.getElementById('content').innerHTML = html;
 
@@ -745,7 +838,7 @@ function renderTasksOverviewReadOnly() {
   const phases = [['opbouw','Opbouw'],['show','Show'],['afbouw','Afbouw']];
   let any = false;
   phases.forEach(([pkey,plabel])=>{
-    const slots = SCHEDULE.filter(s=>s.phase===pkey && getTasksForSlot(s.id).length>0);
+    const slots = SCHEDULE.filter(s=>s.phase===pkey && getTasksForSlot(s.id).length>0 && slotMatchesFilter(s));
     if(slots.length===0) return;
     any = true;
     html += `<div class="sec-title"><h3>${plabel}</h3></div>`;
@@ -758,7 +851,76 @@ function renderTasksOverviewReadOnly() {
       html += '</div></div>';
     });
   });
-  if(!any) html += '<div class="empty-msg">Nog geen taken aangemaakt.</div>';
+  if(!any) html += '<div class="empty-msg">Nog geen taken aangemaakt voor deze selectie.</div>';
+  document.getElementById('content').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════
+// MATERIAALPLANNING (alleen-lezen, piekbehoefte per week)
+// ═══════════════════════════════════════════════════════
+function getWeekKey(dateStr) {
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  const day = dt.getDay(); // 0=zo..6=za
+  const diff = (day===0 ? -6 : 1-day); // terug naar maandag
+  dt.setDate(dt.getDate()+diff);
+  return dt.toISOString().slice(0,10);
+}
+function fmtWeekLabel(weekStart) {
+  const [y,m,d] = weekStart.split('-').map(Number);
+  const start = new Date(y, m-1, d);
+  const end = new Date(start); end.setDate(end.getDate()+6);
+  const f = dt=>`${dt.getDate()}/${dt.getMonth()+1}`;
+  return `Week van ${f(start)} – ${f(end)}`;
+}
+function renderMaterialOverview() {
+  let html = '<h2>🧰 Materiaalplanning</h2>';
+  html += '<div class="mat-intro">Piekbehoefte per materiaal: het maximum dat op één dag binnen die week tegelijk nodig is, gebaseerd op de toegewezen taken.</div>';
+  const phases = [['opbouw','Opbouw'],['show','Show'],['afbouw','Afbouw']];
+  let any = false;
+  phases.forEach(([pkey,plabel])=>{
+    const dates = uniqueDatesForPhase(pkey).filter(d=>{
+      return SCHEDULE.filter(s=>slotBaseDate(s.id)===d).some(s=>slotMatchesFilter(s));
+    });
+    if(dates.length===0) return;
+    const weeks = {};
+    dates.forEach(d=>{ (weeks[getWeekKey(d)] = weeks[getWeekKey(d)]||[]).push(d); });
+    let phaseHtml = '';
+    Object.keys(weeks).sort().forEach(wk=>{
+      const dayTotals = {};
+      const extras = new Set();
+      weeks[wk].forEach(d=>{
+        const dayTotal = {};
+        SCHEDULE.filter(s=>slotBaseDate(s.id)===d && slotMatchesFilter(s)).forEach(s=>{
+          getTasksForSlot(s.id).forEach(t=>{
+            const mat = t.materials||{};
+            Object.keys(mat.items||{}).forEach(k=>{
+              const q = getMaterialQty(mat,k);
+              if(q>0) dayTotal[k] = (dayTotal[k]||0)+q;
+            });
+            if(mat.extra && mat.extra.trim()) extras.add(mat.extra.trim());
+          });
+        });
+        Object.keys(dayTotal).forEach(k=>{ (dayTotals[k]=dayTotals[k]||[]).push(dayTotal[k]); });
+      });
+      const keys = Object.keys(dayTotals);
+      if(keys.length===0 && extras.size===0) return;
+      let pillsHtml = keys.map(k=>{
+        const peak = Math.max(...dayTotals[k]);
+        const label = (MATERIAL_ITEMS.find(m=>m.key===k)||{label:k}).label;
+        return `<span class="mat-pill">${esc(label)}: ${peak}x</span>`;
+      }).join('');
+      phaseHtml += `<div class="mat-week"><div class="mat-week-title">${fmtWeekLabel(wk)}</div>
+        ${pillsHtml?`<div class="mat-pills">${pillsHtml}</div>`:''}
+        ${extras.size?`<div class="mat-ro-extra">Extra: ${esc([...extras].join(', '))}</div>`:''}
+      </div>`;
+    });
+    if(phaseHtml){
+      any = true;
+      html += `<div class="sec-title"><h3>${plabel}</h3></div>${phaseHtml}`;
+    }
+  });
+  if(!any) html += '<div class="empty-msg">Nog geen materiaal toegewezen aan taken voor deze selectie.</div>';
   document.getElementById('content').innerHTML = html;
 }
 
@@ -767,25 +929,79 @@ function renderTasksOverviewReadOnly() {
 // ═══════════════════════════════════════════════════════
 function render() {
   if(currentView==='taken') renderTasksOverviewReadOnly();
+  else if(currentView==='materiaal') renderMaterialOverview();
   else renderPhase();
+}
+
+function clearViewTabs() {
+  document.querySelectorAll('.ptab[data-phase]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tasksTab')?.classList.remove('active');
+  document.getElementById('materialTab')?.classList.remove('active');
 }
 
 document.querySelectorAll('.ptab[data-phase]').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     currentPhase = btn.dataset.phase;
     currentView = 'planning';
-    document.querySelectorAll('.ptab[data-phase]').forEach(b=>b.classList.toggle('active', b===btn));
-    document.getElementById('tasksTab')?.classList.remove('active');
+    clearViewTabs();
+    btn.classList.add('active');
     render();
   });
 });
 
 document.getElementById('tasksTab')?.addEventListener('click', ()=>{
   currentView = 'taken';
+  clearViewTabs();
   document.getElementById('tasksTab')?.classList.add('active');
-  document.querySelectorAll('.ptab[data-phase]').forEach(b=>b.classList.remove('active'));
   render();
 });
+
+document.getElementById('materialTab')?.addEventListener('click', ()=>{
+  currentView = 'materiaal';
+  clearViewTabs();
+  document.getElementById('materialTab')?.classList.add('active');
+  render();
+});
+
+document.getElementById('crewFilter')?.addEventListener('change', (e)=>{
+  currentFilter = e.target.value;
+  render();
+});
+
+document.getElementById('hideEmptyBtn')?.addEventListener('click', (e)=>{
+  hideEmptyDays = !hideEmptyDays;
+  e.currentTarget.classList.toggle('active', hideEmptyDays);
+  render();
+});
+
+document.getElementById('jumpTodayBtn')?.addEventListener('click', ()=>{
+  const todaySlot = SCHEDULE.find(s=>slotBaseDate(s.id)===todayStr);
+  if(!todaySlot){
+    alert('Vandaag valt buiten de geplande periode.');
+    return;
+  }
+  currentPhase = todaySlot.phase;
+  currentView = 'planning';
+  clearViewTabs();
+  document.querySelector(`.ptab[data-phase="${currentPhase}"]`)?.classList.add('active');
+  render();
+  setTimeout(()=>{
+    const todayCard = document.querySelector('.home-card.today');
+    if(todayCard) todayCard.scrollIntoView({behavior:'smooth', block:'start'});
+  }, 30);
+});
+
+// Vul personenfilter aan met freelancers
+(function populatePersonFilter(){
+  const grp = document.getElementById('crewFilterPersons');
+  if(!grp) return;
+  FREELANCERS.forEach(f=>{
+    const opt = document.createElement('option');
+    opt.value = `person:${f.key}`;
+    opt.textContent = f.name;
+    grp.appendChild(opt);
+  });
+})();
 
 // ═══════════════════════════════════════════════════════
 // COUNTDOWN
@@ -823,7 +1039,7 @@ function setSyncIndicator(s, lastSyncAt) {
   if(!syncEl) return;
   if(s==='syncing') syncEl.innerHTML = '<span style="color:var(--muted)">⟳ laden...</span>';
   else if(s==='error') syncEl.innerHTML = '<span style="color:var(--rw)">⚠ laden mislukt</span>';
-  else syncEl.innerHTML = `<span style="color:var(--green)">✓ live ${lastSyncAt?lastSyncAt.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}):''}</span>`;
+  else syncEl.innerHTML = `<span style="color:var(--green)">✓ bijgewerkt ${lastSyncAt?lastSyncAt.toLocaleDateString('nl-BE',{day:'2-digit',month:'2-digit'})+' '+lastSyncAt.toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}):''}</span>`;
 }
 
 async function loadCloudData() {
