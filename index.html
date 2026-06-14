@@ -243,6 +243,17 @@ td.cc.inactive { cursor: default; }
 .sub-add-row button { background: none; border: 1px solid var(--border); border-radius: 5px; color: var(--muted); cursor: pointer; font-size: 12px; padding: 4px 9px; font-weight: 700; }
 .sub-add-row button:hover { color: var(--text); border-color: var(--accent); }
 .tc-actions { display: flex; flex-direction: column; gap: 3px; }
+
+/* Jaaroverzicht */
+.jo-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 12px; }
+.jo-table th, .jo-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+.jo-table th { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
+.jo-table tr:hover td { background: var(--surface2); }
+.jo-status { font-size: 10px; padding: 2px 8px; border-radius: 8px; font-weight: 700; }
+.jo-status.done { background: rgba(76,175,80,.2); color: var(--green); }
+.jo-status.bezig { background: rgba(255,167,38,.2); color: var(--yellow); }
+.jo-status.todo { background: rgba(122,132,168,.2); color: var(--muted); }
+
 .btn-icon { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 3px 5px; border-radius: 4px; line-height: 1; }
 .btn-icon:hover { color: var(--text); background: var(--border); }
 .empty-msg { text-align: center; color: var(--muted); font-size: 13px; padding: 22px 0; }
@@ -373,6 +384,7 @@ td.cc.inactive { cursor: default; }
     <button class="nav-item" data-view="freelancers" title="Freelancer-overzicht"><span class="ni-icon">👤</span>Freelance</button>
     <button class="nav-item" data-view="stats" title="Statistieken"><span class="ni-icon">📊</span>Stats</button>
     <button class="nav-item" data-view="notes" title="Notities"><span class="ni-icon">📝</span>Notities</button>
+    <button class="nav-item" data-view="jaaroverzicht" title="Jaaroverzicht (alle taken + status)"><span class="ni-icon">📋</span>Overzicht</button>
     <a class="nav-item nav-link" href="plan.html" target="_blank" title="Terreinplan (zoom)"><span class="ni-icon">🗺️</span>Plan</a>
   </nav>
   <div class="content-area">
@@ -395,6 +407,7 @@ td.cc.inactive { cursor: default; }
     <div class="view-page" id="view-freelancers"></div>
     <div class="view-page" id="view-stats"></div>
     <div class="view-page" id="view-notes"></div>
+    <div class="view-page" id="view-jaaroverzicht"></div>
   </div>
 </div>
 
@@ -804,6 +817,7 @@ function reRenderCurrentView() {
   else if(currentView==='freelancers'){ renderFreelancersOverview(); }
   else if(currentView==='stats'){ renderStatsView(); }
   else if(currentView==='notes'){ renderNotesView(); }
+  else if(currentView==='jaaroverzicht'){ renderJaaroverzichtView(); }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1398,6 +1412,7 @@ function refreshTaskViews(slotId) {
   if(currentView==='home'){ renderHomeView(); }
   else if(currentView==='tasks'){ renderTasksOverview(); }
   else if(currentView==='materiaal'){ renderMaterialsOverview(); }
+  else if(currentView==='jaaroverzicht'){ renderJaaroverzichtView(); }
   else { renderPanelBody(slotId); }
   renderTableHeaders();
 }
@@ -1893,6 +1908,7 @@ function switchView(view) {
   else if(view==='freelancers'){ renderFreelancersOverview(); }
   else if(view==='stats'){ renderStatsView(); }
   else if(view==='notes'){ renderNotesView(); }
+  else if(view==='jaaroverzicht'){ renderJaaroverzichtView(); }
 }
 
 // Jump from another view back to the crewplanning grid, on a specific slot
@@ -2410,6 +2426,93 @@ function renderNotesView() {
     const val = e.target.value;
     saveTimer = setTimeout(()=>setNotes(val), 500);
   });
+}
+
+// ── Jaaroverzicht ──
+// Blijvend overzicht van alle taken (per dag, met status, ploeg en subtaken),
+// bedoeld als basis voor de planning van volgend jaar. Toont de huidige status
+// op het moment van bekijken/exporteren (geen historische tijdstempels).
+function renderJaaroverzichtView() {
+  const all = loadTasks();
+  let html = `<div class="sec-title"><h2 style="margin-bottom:0">Jaaroverzicht</h2><button class="btn-primary" onclick="exportJaaroverzichtCSV()">⬇️ Exporteer CSV</button></div>`;
+  html += `<div style="font-size:12px;color:var(--muted);margin:-6px 0 14px;line-height:1.5;">Alle taken per dag met hun huidige status (open / bezig / klaar), ploeg en subtaken-voortgang. Handig als basis voor de planning van volgend jaar.</div>`;
+
+  const phaseLabels = {opbouw:'Opbouw', show:'Show', afbouw:'Afbouw'};
+  const statusLabels = {todo:'Open', bezig:'Bezig', done:'Klaar'};
+  let any = false;
+  ['opbouw','show','afbouw'].forEach(pkey=>{
+    const slots = SCHEDULE.filter(s=>s.phase===pkey && (all[s.id]||[]).length>0);
+    if(slots.length===0) return;
+    any = true;
+    html += `<div class="sec-title"><h3>${phaseLabels[pkey]}</h3></div>`;
+    html += `<table class="jo-table"><thead><tr><th>Dag</th><th>Taak</th><th>Ploeg</th><th>Aantal</th><th>Verantw.</th><th>Status</th><th>Subtaken</th></tr></thead><tbody>`;
+    slots.forEach(s=>{
+      (all[s.id]||[]).forEach(t=>{
+        const subs = t.subtasks||[];
+        const subDone = subs.filter(x=>x.done).length;
+        const st = getStatus(t);
+        const cnt = (t.teamCount!=null && t.teamCount!=='') ? t.teamCount : '';
+        html += `<tr>
+          <td>${s.label}${s.slot?' — '+s.slot:''}</td>
+          <td>${esc(t.title)}</td>
+          <td>${t.team?esc(t.team):''}</td>
+          <td>${cnt}</td>
+          <td>${t.assignee?esc(t.assignee):''}</td>
+          <td><span class="jo-status ${st}">${statusLabels[st]}</span></td>
+          <td>${subs.length?`${subDone}/${subs.length}`:''}</td>
+        </tr>`;
+      });
+    });
+    html += `</tbody></table>`;
+  });
+
+  if(!any) html += '<div class="empty-msg">Nog geen taken aangemaakt.</div>';
+  document.getElementById('view-jaaroverzicht').innerHTML = html;
+}
+
+// Exporteert alle taken (alle dagen, met status) als CSV-bestand (Excel-vriendelijk, ; als scheidingsteken).
+function exportJaaroverzichtCSV() {
+  const all = loadTasks();
+  const phaseLabels = {opbouw:'Opbouw', show:'Show', afbouw:'Afbouw'};
+  const statusLabels = {todo:'Open', bezig:'Bezig', done:'Klaar'};
+  const rows = [['Datum','Dag','Fase','Taak','Ploeg','Aantal crew','Verantwoordelijke','Status','Subtaken klaar','Subtaken totaal','Prioriteit','Notities']];
+  SCHEDULE.forEach(s=>{
+    (all[s.id]||[]).forEach(t=>{
+      const subs = t.subtasks||[];
+      const st = getStatus(t);
+      rows.push([
+        slotBaseDate(s.id),
+        s.label + (s.slot?' '+s.slot:''),
+        phaseLabels[s.phase]||s.phase,
+        t.title||'',
+        t.team||'',
+        (t.teamCount!=null && t.teamCount!=='') ? t.teamCount : '',
+        t.assignee||'',
+        statusLabels[st]||st,
+        subs.filter(x=>x.done).length,
+        subs.length,
+        t.priority||'',
+        t.notes||''
+      ]);
+    });
+  });
+  const csv = rows.map(r=>r.map(csvEscape).join(';')).join('\r\n');
+  const blob = new Blob(['﻿'+csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const ts   = new Date().toISOString().slice(0,10);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `dv26-jaaroverzicht-${ts}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function csvEscape(val) {
+  const s = String(val==null?'':val);
+  if(/[";\n\r]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
 }
 
 // ═══════════════════════════════════════════════════════
