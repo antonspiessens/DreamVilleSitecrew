@@ -22,12 +22,7 @@
   .logo span { color: var(--accent); }
   .back-link { padding: 5px 13px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; border: none; background: var(--surface2); color: var(--muted); transition: all 0.15s; letter-spacing: 0.03em; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
   .back-link:hover { color: var(--text); background: var(--border); }
-  .hint { font-size: 11px; color: var(--muted); margin-left: auto; }
   #viewer { flex: 1 1 auto; min-height: 0; background: #05060a; position: relative; }
-  .osd-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; pointer-events: none; }
-  .osd-controls-row { display: flex; gap: 6px; }
-  .osd-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); width: 30px; height: 30px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
-  .osd-btn:hover { border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -62,54 +57,7 @@
 <header>
   <div class="logo">DreamVille <span>2026</span> — Sitemap</div>
   <a class="back-link" href="javascript:history.back()">⬅ Terug</a>
-  <div class="osd-controls-row">
-    <button class="osd-btn" id="zoomInBtn" title="Inzoomen">＋</button>
-    <button class="osd-btn" id="zoomOutBtn" title="Uitzoomen">－</button>
-    <button class="osd-btn" id="homeBtn" title="Volledig beeld">⤢</button>
-    <button class="osd-btn" id="fullpageBtn" title="Volledig scherm">⛶</button>
-  </div>
-  <span class="hint">Sleep om te verplaatsen · scroll/pinch om te zoomen</span>
 </header>
-<div id="viewer">
-  <div class="osd-loading" id="loadingMsg">Plan wordt geladen…</div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
-<script>
-  var viewer = OpenSeadragon({
-    id: "viewer",
-    prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-    tileSources: "dzi3/plan.dzi",
-    showNavigationControl: false,
-    minZoomImageRatio: 0.8,
-    maxZoomPixelRatio: 4,
-    gestureSettingsTouch: { pinchRotate: false },
-    visibilityRatio: 1,
-    constrainDuringPan: true
-  });
-  viewer.addHandler('open', function() {
-    var el = document.getElementById('loadingMsg');
-    if (el) el.remove();
-  });
-  viewer.addHandler('open-failed', function() {
-    var el = document.getElementById('loadingMsg');
-    if (el) el.textContent = 'Plan kon niet geladen worden.';
-  });
-
-  document.getElementById('zoomInBtn').addEventListener('click', function() {
-    viewer.viewport.zoomBy(1.5);
-    viewer.viewport.applyConstraints();
-  });
-  document.getElementById('zoomOutBtn').addEventListener('click', function() {
-    viewer.viewport.zoomBy(1 / 1.5);
-    viewer.viewport.applyConstraints();
-  });
-  document.getElementById('homeBtn').addEventListener('click', function() {
-    viewer.viewport.goHome();
-  });
-  document.getElementById('fullpageBtn').addEventListener('click', function() {
-    viewer.setFullScreen(!viewer.isFullPage());
-  });
-</script>
+<div id="viewer"></div>
 </body>
 </html>
