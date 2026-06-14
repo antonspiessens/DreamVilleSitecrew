@@ -116,6 +116,15 @@ body.edit-mode td.cc:not(.sec):hover { outline: 2px dashed var(--yellow); outlin
 .hours-item.tw { border-left-color: var(--tw); }
 .hours-item b { display: block; font-size: 12px; color: var(--muted); margin-bottom: 2px; font-weight: 700; }
 .hours-note { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.weather-widget { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; }
+.weather-loc { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
+.weather-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 10px; }
+.weather-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; text-align: center; }
+.weather-day { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.weather-icon { font-size: 24px; margin: 4px 0; }
+.weather-temp { font-size: 13px; font-weight: 700; }
+.weather-precip { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.weather-loading, .weather-na { font-size: 12px; color: var(--muted); }
 .home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); gap: 16px; align-items: start; }
 .home-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
 .home-card-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
@@ -241,6 +250,7 @@ td.cc.inactive { cursor: default; }
 .tc-team.ae { background: rgba(66,165,245,.2); color: var(--ae); }
 .tc-team.rw { background: rgba(239,83,80,.2); color: var(--rw); }
 .tc-team.tw { background: rgba(255,167,38,.2); color: var(--tw); }
+.tc-zone { font-size: 10px; padding: 1px 7px; border-radius: 8px; font-weight: 700; background: rgba(38,166,154,.18); color: #26a69a; border: 1px solid rgba(38,166,154,.3); }
 .tc-notes { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
 .tc-subprogress { font-size: 10px; color: var(--muted); font-weight: 700; }
 .subtasks { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; padding-left: 2px; }
@@ -973,6 +983,7 @@ let tvSearchQuery = '';   // zoekterm in Takenoverzicht
 let tvFilterAssignee = ''; // filter op verantwoordelijke in Takenoverzicht
 let tvFilterStatus = '';   // filter op status in Takenoverzicht
 let tvFilterPrio = '';     // filter op prioriteit in Takenoverzicht
+let tvFilterZone = '';     // filter op zone in Takenoverzicht
 let materialsShowWeekly = true; // toon wekelijks materiaaloverzicht (piekbehoefte)
 
 // ═══════════════════════════════════════════════════════
@@ -1367,6 +1378,7 @@ function renderTaskItem(slotId, t) {
         ${t.assignee?`<span class="tc-assignee">👤 ${esc(t.assignee)}</span>`:''}
         ${teamHtml}
         <span class="tc-prio ${pCls}">${t.priority}</span>
+        ${t.zone?`<span class="tc-zone">📍 ${esc(t.zone)}</span>`:''}
         ${subtaskProgressHtml(t)}
         ${materialsBadgeHtml(t)}
       </div>
@@ -1432,6 +1444,74 @@ function materialConflictWarningHtml(slotId) {
   if(conflicts.length===0) return '';
   const parts = conflicts.map(c=>`${esc(c.label)}: ${c.qty}x nodig (>${MATERIAL_CONFLICT_THRESHOLD})`).join(', ');
   return `<div class="mat-conflict-warning">⚠️ Materiaalconflict — ${parts}</div>`;
+}
+
+// ── Weer (Open-Meteo, geen API-key nodig) ──
+// Locatie van het DreamVille-terrein (De Schorre, Boom) — pas aan indien nodig.
+const WEATHER_LOCATION = { lat: 51.0926, lon: 4.3553, name: 'Boom (De Schorre)' };
+const WEATHER_CACHE_KEY = 'dv26_weather_cache';
+const WEATHER_CACHE_TTL = 3 * 60 * 60 * 1000; // 3 uur
+
+const WEATHER_INFO = {
+  0:{icon:'☀️',label:'Helder'}, 1:{icon:'🌤️',label:'Grotendeels helder'}, 2:{icon:'⛅',label:'Bewolkt'}, 3:{icon:'☁️',label:'Overcast'},
+  45:{icon:'🌫️',label:'Mist'}, 48:{icon:'🌫️',label:'Rijp/mist'},
+  51:{icon:'🌦️',label:'Lichte motregen'}, 53:{icon:'🌦️',label:'Motregen'}, 55:{icon:'🌧️',label:'Zware motregen'},
+  61:{icon:'🌦️',label:'Lichte regen'}, 63:{icon:'🌧️',label:'Regen'}, 65:{icon:'🌧️',label:'Zware regen'},
+  71:{icon:'🌨️',label:'Lichte sneeuw'}, 73:{icon:'🌨️',label:'Sneeuw'}, 75:{icon:'❄️',label:'Zware sneeuw'},
+  80:{icon:'🌦️',label:'Lichte buien'}, 81:{icon:'🌧️',label:'Buien'}, 82:{icon:'⛈️',label:'Zware buien'},
+  95:{icon:'⛈️',label:'Onweer'}, 96:{icon:'⛈️',label:'Onweer + hagel'}, 99:{icon:'⛈️',label:'Zwaar onweer + hagel'},
+};
+function weatherInfo(code) { return WEATHER_INFO[code] || {icon:'🌡️', label:''}; }
+
+function loadWeatherCache() {
+  try { return JSON.parse(localStorage.getItem(WEATHER_CACHE_KEY)||'null'); } catch(e){ return null; }
+}
+function saveWeatherCache(data) {
+  try { localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({fetchedAt:Date.now(), data})); } catch(e){}
+}
+async function fetchWeather() {
+  const cached = loadWeatherCache();
+  if(cached && cached.data && (Date.now()-cached.fetchedAt) < WEATHER_CACHE_TTL) return cached.data;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LOCATION.lat}&longitude=${WEATHER_LOCATION.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBrussels&forecast_days=3`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('weather fetch failed');
+  const data = await res.json();
+  saveWeatherCache(data);
+  return data;
+}
+function renderWeatherCard(label, dateStr, data) {
+  const idx = data && data.daily ? (data.daily.time||[]).indexOf(dateStr) : -1;
+  if(idx===-1) return `<div class="weather-card"><div class="weather-day">${label}</div><div class="weather-na">—</div></div>`;
+  const info = weatherInfo(data.daily.weathercode[idx]);
+  const max = Math.round(data.daily.temperature_2m_max[idx]);
+  const min = Math.round(data.daily.temperature_2m_min[idx]);
+  const precip = data.daily.precipitation_probability_max[idx];
+  return `<div class="weather-card">
+    <div class="weather-day">${label}</div>
+    <div class="weather-icon" title="${esc(info.label)}">${info.icon}</div>
+    <div class="weather-temp">${min}° / ${max}°</div>
+    <div class="weather-precip">💧 ${precip}%</div>
+  </div>`;
+}
+function renderWeatherWidget(idPrefix) {
+  return `<div class="weather-widget" id="${idPrefix||'weatherWidget'}"><div class="weather-loading">🌤️ Weer laden...</div></div>`;
+}
+async function updateWeatherWidget(idPrefix) {
+  const el = document.getElementById(idPrefix||'weatherWidget');
+  if(!el) return;
+  const now = new Date();
+  const tomorrow = new Date(now.getTime()+24*60*60*1000);
+  const dayAfter = new Date(now.getTime()+2*24*60*60*1000);
+  try {
+    const data = await fetchWeather();
+    el.innerHTML = `<div class="weather-loc">📍 Weer ${esc(WEATHER_LOCATION.name)}</div><div class="weather-row">`
+      + renderWeatherCard('Vandaag', toLocalISO(now), data)
+      + renderWeatherCard('Morgen', toLocalISO(tomorrow), data)
+      + renderWeatherCard('Overmorgen', toLocalISO(dayAfter), data)
+      + `</div>`;
+  } catch(e) {
+    el.innerHTML = '<div class="weather-na">⚠️ Weer kon niet geladen worden (geen verbinding?).</div>';
+  }
 }
 
 // ── Wekelijks materiaaloverzicht (piekbehoefte per week, ma–zo + ISO weeknummer) ──
@@ -1599,6 +1679,19 @@ function assigneeOptionsHtml(slot, currentAssignee) {
   return opts;
 }
 
+// ── Zone-tags ──
+// Verzamelt alle unieke, reeds gebruikte zones (over alle taken) voor autocomplete/filter.
+function getAllZones() {
+  const all = loadTasks();
+  const set = new Set();
+  Object.values(all).forEach(arr=>(arr||[]).forEach(t=>{ if(t.zone && t.zone.trim()) set.add(t.zone.trim()); }));
+  return [...set].sort((a,b)=>a.localeCompare(b,'nl'));
+}
+
+function zoneDatalistHtml() {
+  return `<datalist id="zoneOptions">${getAllZones().map(z=>`<option value="${esc(z)}"></option>`).join('')}</datalist>`;
+}
+
 function renderTaskForm(slotId, slot, task) {
   const isNew = !task;
   const assigneeOpts = assigneeOptionsHtml(slot, task?.assignee);
@@ -1633,6 +1726,9 @@ function renderTaskForm(slotId, slot, task) {
         ${teamCountInput}
       </div>
     </div>
+    <label>Zone</label>
+    <input type="text" id="tf-zone" list="zoneOptions" value="${esc(task?.zone||'')}" placeholder="bv. Camping Noord, Ingang Hoofdpoort..." />
+    ${zoneDatalistHtml()}
     <label>Notities</label>
     <textarea id="tf-notes" placeholder="Extra info...">${esc(task?.notes||'')}</textarea>
     <div class="form-btns">
@@ -1841,12 +1937,13 @@ function saveTask(slotId, taskId) {
   const team = document.getElementById('tf-team')?.value||'';
   const teamCountRaw = document.getElementById('tf-teamcount')?.value;
   const teamCount = (team && teamCountRaw!=='' && teamCountRaw!=null) ? Math.max(0, parseInt(teamCountRaw,10)||0) : null;
+  const zone = document.getElementById('tf-zone')?.value?.trim()||'';
   const tasks = getTasksForSlot(slotId);
   if(taskId){
     const t = tasks.find(x=>x.id===taskId);
-    if(t){ t.title=title; t.assignee=assignee; t.priority=priority; t.notes=notes; t.team=team; t.teamCount=teamCount; if(!t.subtasks) t.subtasks=[]; if(!t.materials) t.materials={items:{},extra:''}; }
+    if(t){ t.title=title; t.assignee=assignee; t.priority=priority; t.notes=notes; t.team=team; t.teamCount=teamCount; t.zone=zone; if(!t.subtasks) t.subtasks=[]; if(!t.materials) t.materials={items:{},extra:''}; }
   } else {
-    tasks.push({id:Date.now().toString(),title,assignee,priority,notes,team,teamCount,done:false,subtasks:[],materials:{items:{},extra:''}});
+    tasks.push({id:Date.now().toString(),title,assignee,priority,notes,team,teamCount,zone,done:false,subtasks:[],materials:{items:{},extra:''}});
   }
   saveTasksForSlot(slotId, tasks);
   editingTaskId = null;
@@ -2250,12 +2347,14 @@ function renderHomeView() {
   const dayAfterStr = dayAfter.toISOString().slice(0,10);
 
   let html = renderWorkingHoursCard();
+  html += renderWeatherWidget();
   html += '<h2>Vandaag, morgen &amp; overmorgen</h2><div class="home-grid">';
   html += renderHomeDayCard('Vandaag', todayStr);
   html += renderHomeDayCard('Morgen', tomorrowStr);
   html += renderHomeDayCard('Overmorgen', dayAfterStr);
   html += '</div>';
   document.getElementById('view-home').innerHTML = html;
+  updateWeatherWidget();
 }
 
 function renderWorkingHoursCard() {
@@ -2287,7 +2386,10 @@ function renderHomeDayCard(label, dateStr) {
     body = slots.map(s=>renderHomeSlot(s)).join('');
   }
   return `<div class="home-card">
-    <div class="home-card-head"><div class="home-card-title">${label}</div><div class="home-card-date">${fmtHomeDate(dateStr)}</div></div>
+    <div class="home-card-head">
+      <div><div class="home-card-title">${label}</div><div class="home-card-date">${fmtHomeDate(dateStr)}</div></div>
+      <button class="btn-sec" onclick="printDayPlanning('${dateStr}')" title="Print/PDF van deze dagplanning">🖨️ Print</button>
+    </div>
     ${body}
   </div>`;
 }
@@ -2331,6 +2433,90 @@ function renderHomeSlot(slot) {
 
   html += '</div>';
   return html;
+}
+
+// ── Print/PDF van dagplanning ──
+function materialsTextForTask(t) {
+  const mat = t.materials || {items:{}, extra:''};
+  const parts = MATERIAL_ITEMS.filter(m=>getMaterialQty(mat,m.key)>0).map(m=>`${m.label} (${getMaterialQty(mat,m.key)}x)`);
+  if(mat.extra && mat.extra.trim()) parts.push(mat.extra.trim());
+  return parts.join(', ');
+}
+
+function subtasksPrintHtml(t) {
+  const subs = t.subtasks||[];
+  if(!subs.length) return '';
+  return '<div class="psub">' + subs.map(s=>`${getStatus(s)==='done'?'☑':'☐'} ${esc(s.title)}`).join('<br>') + '</div>';
+}
+
+function printDayPlanning(dateStr) {
+  const slots = SCHEDULE.filter(s=>slotBaseDate(s.id)===dateStr);
+  const dateLabel = fmtHomeDate(dateStr);
+  let body = `<h1>DreamVille 2026 — Dagplanning</h1><div class="pdate">${esc(dateLabel)} · ${esc(dateStr)}</div>`;
+
+  if(slots.length===0){
+    body += '<p class="pempty">Geen planningsdata voor deze dag.</p>';
+  }
+
+  slots.forEach(s=>{
+    body += `<h2>${esc(s.label)}${s.slot?' — '+esc(s.slot):''}</h2>`;
+
+    const presentParts = [];
+    if(ANTON[s.id]===1) presentParts.push('Anton');
+    if(s.ae) presentParts.push(`All Events (${1+(s.ae.sh||0)})`);
+    if(s.rw) presentParts.push(`Radarwerk (${1+(s.rw.arc||0)})`);
+    if(s.tw){ const n=(s.tw.pro||0)+(s.tw.senior||0)+(s.tw.junior||0); presentParts.push(`Team Wauw (${n})`); }
+    const fl = s.fl || {};
+    FREELANCERS.forEach(f=>{
+      if(fl[f.key]===1) presentParts.push(f.name);
+      else if(fl[f.key]===-1) presentParts.push(`${f.name} (optie)`);
+    });
+    body += `<div class="ppresent">${presentParts.length?'👥 '+presentParts.map(p=>esc(p)).join(' · '):'Geen aanwezigheden geregistreerd.'}</div>`;
+
+    const conflicts = getMaterialConflicts(s.id);
+    if(conflicts.length){
+      const parts = conflicts.map(c=>`${esc(c.label)}: ${c.qty}x nodig (>${MATERIAL_CONFLICT_THRESHOLD})`).join(', ');
+      body += `<div class="pwarn">⚠️ Materiaalconflict — ${parts}</div>`;
+    }
+
+    const tasks = getTasksForSlot(s.id);
+    if(tasks.length===0){
+      body += '<p class="pempty">Geen taken voor deze dag.</p>';
+    } else {
+      body += '<table class="ptable"><thead><tr><th></th><th>Taak</th><th>Verantwoordelijke</th><th>Zone</th><th>Prio</th><th>Materiaal</th></tr></thead><tbody>';
+      tasks.forEach(t=>{
+        body += `<tr>
+          <td class="pcheck">${getStatus(t)==='done'?'☑':'☐'}</td>
+          <td>${esc(t.title)}${t.notes?`<div class="pnotes">${esc(t.notes)}</div>`:''}${subtasksPrintHtml(t)}</td>
+          <td>${esc(t.assignee||'')}${t.team?`<br><span class="pnotes">${esc(t.team)}${t.teamCount!=null?` (${t.teamCount})`:''}</span>`:''}</td>
+          <td>${esc(t.zone||'')}</td>
+          <td>${esc(t.priority||'')}</td>
+          <td>${esc(materialsTextForTask(t))}</td>
+        </tr>`;
+      });
+      body += '</tbody></table>';
+    }
+  });
+
+  const win = window.open('', '_blank');
+  if(!win) { alert('Pop-up geblokkeerd. Sta pop-ups toe om te kunnen printen.'); return; }
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dagplanning ${esc(dateStr)}</title><style>
+    body{font-family:-apple-system,Segoe UI,Arial,sans-serif; color:#111; padding:24px; max-width:1000px; margin:0 auto;}
+    h1{font-size:20px; margin:0 0 4px;}
+    .pdate{font-size:13px; color:#666; margin-bottom:18px;}
+    h2{font-size:15px; margin-top:22px; border-bottom:1px solid #ccc; padding-bottom:4px;}
+    .ppresent{font-size:12px; color:#444; margin:4px 0 8px;}
+    .pwarn{font-size:12px; color:#b00020; font-weight:700; margin-bottom:6px;}
+    .pempty{font-size:12px; color:#888; font-style:italic;}
+    .ptable{width:100%; border-collapse:collapse; font-size:12px; margin-top:6px;}
+    .ptable th, .ptable td{border:1px solid #ddd; padding:5px 7px; text-align:left; vertical-align:top;}
+    .ptable th{background:#f3f3f3;}
+    .pcheck{text-align:center; width:24px;}
+    .pnotes{font-size:11px; color:#777; margin-top:2px;}
+    .psub{font-size:11px; color:#555; margin-top:2px;}
+    @media print { body{padding:0;} }
+  </style></head><body>${body}<script>window.onload=function(){window.print();}<\/script></body></html>`);
+  win.document.close();
 }
 
 // ── Takenoverzicht ──
@@ -2480,6 +2666,7 @@ function taskMatchesFilters(t) {
   if(tvFilterAssignee && (t.assignee||'')!==tvFilterAssignee) return false;
   if(tvFilterStatus && getStatus(t)!==tvFilterStatus) return false;
   if(tvFilterPrio && (t.priority||'')!==tvFilterPrio) return false;
+  if(tvFilterZone && (t.zone||'')!==tvFilterZone) return false;
   if(tvSearchQuery){
     const q = tvSearchQuery.trim().toLowerCase();
     if(q){
@@ -2492,7 +2679,7 @@ function taskMatchesFilters(t) {
 }
 
 function tasksFilterActive() {
-  return !!(tvSearchQuery.trim() || tvFilterAssignee || tvFilterStatus || tvFilterPrio);
+  return !!(tvSearchQuery.trim() || tvFilterAssignee || tvFilterStatus || tvFilterPrio || tvFilterZone);
 }
 
 function renderTasksFilterBar(all) {
@@ -2501,6 +2688,10 @@ function renderTasksFilterBar(all) {
   const assigneeList = Array.from(assignees).sort((a,b)=>a.localeCompare(b,'nl'));
   let assigneeOpts = `<option value="">Alle verantwoordelijken</option>`;
   assigneeList.forEach(a=>{ assigneeOpts += `<option value="${esc(a)}" ${tvFilterAssignee===a?'selected':''}>${esc(a)}</option>`; });
+
+  const zoneList = getAllZones();
+  let zoneOpts = `<option value="">Alle zones</option>`;
+  zoneList.forEach(z=>{ zoneOpts += `<option value="${esc(z)}" ${tvFilterZone===z?'selected':''}>${esc(z)}</option>`; });
 
   let html = `<div class="task-filter-bar">
     <input type="text" id="tvSearch" placeholder="🔍 Zoek op titel, notities, naam..." value="${esc(tvSearchQuery)}" oninput="onTasksFilterChange()">
@@ -2516,7 +2707,8 @@ function renderTasksFilterBar(all) {
       <option value="Laag" ${tvFilterPrio==='Laag'?'selected':''}>Laag</option>
       <option value="Middel" ${tvFilterPrio==='Middel'?'selected':''}>Middel</option>
       <option value="Hoog" ${tvFilterPrio==='Hoog'?'selected':''}>Hoog</option>
-    </select>`;
+    </select>
+    <select id="tvZone" onchange="onTasksFilterChange()">${zoneOpts}</select>`;
   if(tasksFilterActive()) html += `<button class="btn-sec" onclick="resetTasksFilters()">✕ Wis filters</button>`;
   html += `</div>`;
   return html;
@@ -2530,6 +2722,7 @@ function onTasksFilterChange() {
   tvFilterAssignee = document.getElementById('tvAssignee')?.value || '';
   tvFilterStatus = document.getElementById('tvStatus')?.value || '';
   tvFilterPrio = document.getElementById('tvPrio')?.value || '';
+  tvFilterZone = document.getElementById('tvZone')?.value || '';
   renderTasksOverview();
   if(wasFocused){
     const newSearchEl = document.getElementById('tvSearch');
@@ -2541,7 +2734,7 @@ function onTasksFilterChange() {
 }
 
 function resetTasksFilters() {
-  tvSearchQuery=''; tvFilterAssignee=''; tvFilterStatus=''; tvFilterPrio='';
+  tvSearchQuery=''; tvFilterAssignee=''; tvFilterStatus=''; tvFilterPrio=''; tvFilterZone='';
   renderTasksOverview();
 }
 
@@ -2588,6 +2781,9 @@ function renderNewTaskForm() {
         ${teamCountInputHtml('ntf', slot, '', null)}
       </div>
     </div>
+    <label>Zone</label>
+    <input type="text" id="ntf-zone" list="zoneOptions" placeholder="bv. Camping Noord, Ingang Hoofdpoort..." />
+    ${zoneDatalistHtml()}
     <label>Notities</label>
     <textarea id="ntf-notes" placeholder="Extra info..."></textarea>
     <div class="form-btns">
@@ -2631,8 +2827,9 @@ function saveNewTask() {
   const team = document.getElementById('ntf-team')?.value || '';
   const teamCountRaw = document.getElementById('ntf-teamcount')?.value;
   const teamCount = (team && teamCountRaw!=='' && teamCountRaw!=null) ? Math.max(0, parseInt(teamCountRaw,10)||0) : null;
+  const zone = document.getElementById('ntf-zone')?.value?.trim() || '';
   const tasks = getTasksForSlot(slotId);
-  tasks.push({id:Date.now().toString(), title, assignee, priority, notes, team, teamCount, done:false, subtasks:[], materials:{items:{},extra:''}});
+  tasks.push({id:Date.now().toString(), title, assignee, priority, notes, team, teamCount, zone, done:false, subtasks:[], materials:{items:{},extra:''}});
   saveTasksForSlot(slotId, tasks);
   tvAddingTask = false;
   renderTasksOverview();
@@ -2657,6 +2854,7 @@ function renderTaskItemOverview(slotId, t) {
         ${t.assignee?`<span class="tc-assignee">👤 ${esc(t.assignee)}</span>`:''}
         ${teamHtml}
         <span class="tc-prio ${pCls}">${t.priority}</span>
+        ${t.zone?`<span class="tc-zone">📍 ${esc(t.zone)}</span>`:''}
         ${subtaskProgressHtml(t)}
         ${materialsBadgeHtml(t)}
       </div>
