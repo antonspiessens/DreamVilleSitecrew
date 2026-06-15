@@ -716,7 +716,7 @@ function renderTaskItemReadOnly(slotId, t) {
 // ═══════════════════════════════════════════════════════
 // DAGKAARTEN
 // ═══════════════════════════════════════════════════════
-let todayStr = new Date().toISOString().slice(0,10);
+let todayStr = toLocalISO(new Date());
 let currentFilter = 'all';
 let hideEmptyDays = false;
 
@@ -899,6 +899,7 @@ function printDayPlanning(dateStr) {
 // ═══════════════════════════════════════════════════════
 let currentPhase = 'opbouw';
 let currentView = 'planning'; // 'planning' | 'taken'
+let lastWeatherPromise = null;
 
 function uniqueDatesForPhase(phase) {
   const seen = new Set(); const dates=[];
@@ -944,10 +945,14 @@ function renderPhase() {
     }
   }
   document.getElementById('content').innerHTML = html;
-  updateWeatherWidget();
+  const weatherDone = updateWeatherWidget();
 
   // Scroll naar "vandaag" bij opbouw/laden, met behoud van werktijden/weer bovenaan
   setTimeout(()=>{ scrollToToday('instant'); }, 30);
+  // Het weerwidget laadt async en kan de layout daarna nog verschuiven —
+  // herhaal de scroll zodra het weer geladen is zodat "vandaag" in beeld blijft.
+  lastWeatherPromise = weatherDone;
+  weatherDone.then(()=>{ if(lastWeatherPromise===weatherDone) scrollToToday('instant'); });
 }
 
 // Scrolt zodat de "vandaag"-kaart in beeld komt, zonder de werktijden- en weerkaart
@@ -1270,6 +1275,7 @@ document.getElementById('jumpTodayBtn')?.addEventListener('click', ()=>{
   setActiveNav('planning');
   render();
   setTimeout(()=>{ scrollToToday('smooth'); }, 30);
+  if(lastWeatherPromise) lastWeatherPromise.then(()=>{ scrollToToday('smooth'); });
 });
 
 // Vul personenfilter aan met freelancers
