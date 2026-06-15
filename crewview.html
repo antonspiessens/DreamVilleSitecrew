@@ -914,11 +914,23 @@ function renderPhase() {
   document.getElementById('content').innerHTML = html;
   updateWeatherWidget();
 
-  // Scroll naar "vandaag" bij opbouw/laden
-  setTimeout(()=>{
-    const todayCard = document.querySelector('.home-card.today');
-    if(todayCard) todayCard.scrollIntoView({behavior:'instant', block:'start'});
-  }, 30);
+  // Scroll naar "vandaag" bij opbouw/laden, met behoud van werktijden/weer bovenaan
+  setTimeout(()=>{ scrollToToday('instant'); }, 30);
+}
+
+// Scrolt zodat de "vandaag"-kaart in beeld komt, zonder de werktijden- en weerkaart
+// die erboven staan uit beeld te duwen.
+function scrollToToday(behavior) {
+  const todayCard = document.querySelector('.home-card.today');
+  if(!todayCard) return;
+  const grid = document.querySelector('.home-grid');
+  const content = document.getElementById('content');
+  let headerOffset = 0;
+  if(grid && content) {
+    headerOffset = grid.getBoundingClientRect().top - content.getBoundingClientRect().top;
+  }
+  const targetY = todayCard.getBoundingClientRect().top + window.scrollY - headerOffset;
+  window.scrollTo({top: Math.max(0, targetY), behavior: behavior||'smooth'});
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1154,10 +1166,7 @@ document.getElementById('jumpTodayBtn')?.addEventListener('click', ()=>{
   clearViewTabs();
   document.querySelector(`.ptab[data-phase="${currentPhase}"]`)?.classList.add('active');
   render();
-  setTimeout(()=>{
-    const todayCard = document.querySelector('.home-card.today');
-    if(todayCard) todayCard.scrollIntoView({behavior:'smooth', block:'start'});
-  }, 30);
+  setTimeout(()=>{ scrollToToday('smooth'); }, 30);
 });
 
 // Vul personenfilter aan met freelancers
