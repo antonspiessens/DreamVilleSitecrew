@@ -952,15 +952,15 @@ function renderPhase() {
 // die erboven staan uit beeld te duwen.
 function scrollToToday(behavior) {
   const todayCard = document.querySelector('.home-card.today');
-  if(!todayCard) return;
-  const grid = document.querySelector('.home-grid');
   const content = document.getElementById('content');
+  if(!todayCard || !content) return;
+  const grid = document.querySelector('.home-grid');
   let headerOffset = 0;
-  if(grid && content) {
+  if(grid) {
     headerOffset = grid.getBoundingClientRect().top - content.getBoundingClientRect().top;
   }
-  const targetY = todayCard.getBoundingClientRect().top + window.scrollY - headerOffset;
-  window.scrollTo({top: Math.max(0, targetY), behavior: behavior||'smooth'});
+  const targetY = content.scrollTop + (todayCard.getBoundingClientRect().top - content.getBoundingClientRect().top) - headerOffset;
+  content.scrollTo({top: Math.max(0, targetY), behavior: behavior||'smooth'});
 }
 
 // ═══════════════════════════════════════════════════════
