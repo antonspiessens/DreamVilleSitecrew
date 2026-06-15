@@ -408,6 +408,7 @@ td.cc.inactive { cursor: default; }
 }
 
 </style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 </head>
 <body>
 <div id="authGate" style="position:fixed;inset:0;z-index:99999;background:#0d0f18;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
@@ -485,6 +486,7 @@ td.cc.inactive { cursor: default; }
     <button class="nav-item" data-view="stats" title="Statistieken"><span class="ni-icon">📊</span>Stats</button>
     <button class="nav-item" data-view="notes" title="Notities"><span class="ni-icon">📝</span>Notities</button>
     <button class="nav-item" data-view="jaaroverzicht" title="Jaaroverzicht (alle taken + status)"><span class="ni-icon">📋</span>Overzicht</button>
+    <button class="nav-item" data-view="locatie" title="Live GPS-locatie op het terreinplan"><span class="ni-icon">📍</span>Locatie</button>
     <a class="nav-item nav-link" href="plan.html" target="_blank" title="Terreinplan (zoom)"><span class="ni-icon">🗺️</span>Plan</a>
   </nav>
   <div class="content-area">
@@ -514,9 +516,11 @@ td.cc.inactive { cursor: default; }
     <div class="view-page" id="view-stats"></div>
     <div class="view-page" id="view-notes"></div>
     <div class="view-page" id="view-jaaroverzicht"></div>
+    <div class="view-page" id="view-locatie"></div>
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════
 // SCHEDULE DATA
@@ -2350,6 +2354,7 @@ function switchView(view) {
   else if(view==='stats'){ renderStatsView(); }
   else if(view==='notes'){ renderNotesView(); }
   else if(view==='jaaroverzicht'){ renderJaaroverzichtView(); }
+  else if(view==='locatie'){ renderLocatieView(); }
 }
 
 // Jump from another view back to the crewplanning grid, on a specific slot
@@ -3312,6 +3317,72 @@ function renderOpeningCountdown(){
 // ═══════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// LIVE LOCATIE (vergelijkbaar met SW Maps): toont de GPS-positie
+// van het bezoekende toestel op een kaart.
+//
+// Zodra het gegeorefereerde terreinplan beschikbaar is, vul je hier
+// PLAN_OVERLAY in met de afbeelding + de GPS-coördinaten van de
+// hoekpunten (zoals in SW Maps). Bv:
+// const PLAN_OVERLAY = {
+//   url: 'terreinplan.png',
+//   bounds: [[51.0000, 4.0000], [51.0050, 4.0100]] // [[zuidwest],[noordoost]]
+// };
+// Zolang dit op null staat, wordt een gewone OpenStreetMap-kaart getoond.
+// ═══════════════════════════════════════════════════════
+const PLAN_OVERLAY = null;
+
+let locatieMap = null, locatieMarker = null, locatieCircle = null, locatieWatchId = null;
+
+function renderLocatieView() {
+  const el = document.getElementById('view-locatie');
+  if (!locatieMap) {
+    el.innerHTML = `
+      <h2>📍 Live locatie</h2>
+      <p class="mat-intro">Toont je huidige GPS-positie op de kaart, zoals in SW Maps. Geef toestemming voor locatie wanneer je browser dit vraagt. Het terreinplan met overlay volgt zodra de georeferentie beschikbaar is.</p>
+      <div id="locatieStatus" style="font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
+      <div id="locatieMapEl" style="height:70vh;border-radius:10px;overflow:hidden;border:1px solid var(--border);"></div>
+    `;
+    locatieMap = L.map('locatieMapEl').setView([50.85, 4.35], 8);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(locatieMap);
+    if (PLAN_OVERLAY) {
+      L.imageOverlay(PLAN_OVERLAY.url, PLAN_OVERLAY.bounds).addTo(locatieMap);
+      locatieMap.fitBounds(PLAN_OVERLAY.bounds);
+    }
+    startLocatieWatch();
+  } else {
+    setTimeout(() => locatieMap.invalidateSize(), 50);
+  }
+}
+
+function startLocatieWatch() {
+  const statusEl = document.getElementById('locatieStatus');
+  if (!navigator.geolocation) {
+    statusEl.textContent = '⚠️ Geolocatie wordt niet ondersteund door deze browser.';
+    return;
+  }
+  statusEl.textContent = '⟳ Locatie zoeken...';
+  if (locatieWatchId !== null) return;
+  locatieWatchId = navigator.geolocation.watchPosition(pos => {
+    const { latitude, longitude, accuracy } = pos.coords;
+    statusEl.textContent = `✓ Locatie gevonden (nauwkeurigheid ±${Math.round(accuracy)} m)`;
+    if (!locatieMarker) {
+      locatieMarker = L.circleMarker([latitude, longitude], { radius: 8, color: '#6c63ff', fillColor: '#6c63ff', fillOpacity: 0.9, weight: 2 }).addTo(locatieMap);
+      locatieCircle = L.circle([latitude, longitude], { radius: accuracy, color: '#6c63ff', fillColor: '#6c63ff', fillOpacity: 0.1, weight: 1 }).addTo(locatieMap);
+      locatieMap.setView([latitude, longitude], PLAN_OVERLAY ? locatieMap.getZoom() : 17);
+    } else {
+      locatieMarker.setLatLng([latitude, longitude]);
+      locatieCircle.setLatLng([latitude, longitude]);
+      locatieCircle.setRadius(accuracy);
+    }
+  }, err => {
+    statusEl.textContent = '⚠️ Kon locatie niet ophalen: ' + err.message;
+  }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 });
+}
+
 // Auto-select phase based on today
 function autoPhase(){
   const d = new Date();
