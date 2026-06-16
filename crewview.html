@@ -105,14 +105,15 @@ header { flex-shrink: 0; background: var(--surface); border-bottom: 1px solid va
 .weather-loc { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
 .weather-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 10px; }
 .weather-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; text-align: center; }
-.weather-card.heat-warn { background: rgba(255,152,0,.15); border-color: rgba(255,152,0,.5); }
-.weather-card.heat-warn .weather-temp { color: #ff9800; }
-.weather-card.heat-danger { background: rgba(239,83,80,.15); border-color: rgba(239,83,80,.5); }
-.weather-card.heat-danger .weather-temp { color: #ef5350; }
+.weather-card.risk-warn { background: rgba(255,152,0,.15); border-color: rgba(255,152,0,.5); }
+.weather-card.risk-danger { background: rgba(239,83,80,.15); border-color: rgba(239,83,80,.5); }
 .weather-day { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-.weather-icon { font-size: 24px; margin: 4px 0; }
+.weather-icon { font-size: 22px; margin: 4px 0 2px; }
 .weather-temp { font-size: 13px; font-weight: 700; }
-.weather-precip { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.weather-indicators { display: flex; justify-content: center; gap: 5px; margin-top: 6px; }
+.wi { font-size: 13px; opacity: .2; }
+.wi.warn { opacity: 1; color: #ff9800; }
+.wi.danger { opacity: 1; color: #ef5350; }
 .weather-loading, .weather-na { font-size: 12px; color: var(--muted); }
 
 /* ── DAY CARDS ── */
@@ -1190,7 +1191,7 @@ function renderTasksOverviewReadOnly() {
 // ── Weer (Open-Meteo, geen API-key nodig) ──
 // Locatie van het DreamVille-terrein (De Schorre, Boom) — pas aan indien nodig.
 const WEATHER_LOCATION = { lat: 51.0926, lon: 4.3553, name: 'Boom (De Schorre)' };
-const WEATHER_CACHE_KEY = 'dv26_weather_cache_v2';
+const WEATHER_CACHE_KEY = 'dv26_weather_cache_v3';
 const WEATHER_CACHE_TTL = 3 * 60 * 60 * 1000; // 3 uur
 
 const WEATHER_INFO = {
@@ -1213,27 +1214,48 @@ function saveWeatherCache(data) {
 async function fetchWeather() {
   const cached = loadWeatherCache();
   if(cached && cached.data && (Date.now()-cached.fetchedAt) < WEATHER_CACHE_TTL) return cached.data;
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LOCATION.lat}&longitude=${WEATHER_LOCATION.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBrussels&forecast_days=7`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LOCATION.lat}&longitude=${WEATHER_LOCATION.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,windspeed_10m_max&timezone=Europe%2FBrussels&forecast_days=7`;
   const res = await fetch(url);
   if(!res.ok) throw new Error('weather fetch failed');
   const data = await res.json();
   saveWeatherCache(data);
   return data;
 }
+function weatherRisk(data, idx) {
+  const d = data.daily;
+  const max   = Math.round(d.temperature_2m_max[idx]);
+  const prob  = d.precipitation_probability_max[idx] || 0;
+  const sum   = d.precipitation_sum ? (d.precipitation_sum[idx] || 0) : 0;
+  const code  = d.weathercode[idx];
+  const wind  = d.windspeed_10m_max ? (d.windspeed_10m_max[idx] || 0) : 0;
+  return {
+    heat    : max  >= 34 ? 2 : max  >= 30 ? 1 : 0,
+    rain    : (prob >= 80 || sum >= 25) ? 2 : (prob >= 50 || sum >= 10) ? 1 : 0,
+    thunder : [96,99].includes(code) ? 2 : code === 95 ? 1 : 0,
+    wind    : wind >= 60 ? 2 : wind >= 40 ? 1 : 0,
+  };
+}
+function riskCls(r){ return r===2?'danger':r===1?'warn':''; }
+
 function renderWeatherCard(label, dateStr, data) {
   const idx = data && data.daily ? (data.daily.time||[]).indexOf(dateStr) : -1;
   if(idx===-1) return `<div class="weather-card"><div class="weather-day">${label}</div><div class="weather-na">—</div></div>`;
   const info = weatherInfo(data.daily.weathercode[idx]);
-  const max = Math.round(data.daily.temperature_2m_max[idx]);
-  const min = Math.round(data.daily.temperature_2m_min[idx]);
-  const precip = data.daily.precipitation_probability_max[idx];
-  const heatCls = max >= 34 ? ' heat-danger' : max >= 30 ? ' heat-warn' : '';
-  const heatBadge = max >= 34 ? ' 🔴' : max >= 30 ? ' 🟠' : '';
-  return `<div class="weather-card${heatCls}">
-    <div class="weather-day">${label}${heatBadge}</div>
+  const max  = Math.round(data.daily.temperature_2m_max[idx]);
+  const min  = Math.round(data.daily.temperature_2m_min[idx]);
+  const risk = weatherRisk(data, idx);
+  const top  = Math.max(risk.heat, risk.rain, risk.thunder, risk.wind);
+  const cardCls = top===2?' risk-danger':top===1?' risk-warn':'';
+  return `<div class="weather-card${cardCls}">
+    <div class="weather-day">${label}</div>
     <div class="weather-icon" title="${esc(info.label)}">${info.icon}</div>
     <div class="weather-temp">${min}° / ${max}°</div>
-    <div class="weather-precip">💧 ${precip}%</div>
+    <div class="weather-indicators">
+      <span class="wi ${riskCls(risk.heat)}"    title="Hitte">🌡️</span>
+      <span class="wi ${riskCls(risk.rain)}"    title="Neerslag">💧</span>
+      <span class="wi ${riskCls(risk.thunder)}" title="Onweer">⚡</span>
+      <span class="wi ${riskCls(risk.wind)}"    title="Wind">💨</span>
+    </div>
   </div>`;
 }
 function renderWeatherWidget(idPrefix) {
