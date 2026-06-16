@@ -169,6 +169,7 @@
   <div class="sep"></div>
   <button class="tool-btn" onclick="saveData()" title="Opslaan">💾 Opslaan</button>
   <button class="tool-btn" onclick="exportPNG()" title="Exporteer als afbeelding">📷 Export</button>
+  <button class="tool-btn" id="btn-publish" onclick="saveMapToFile()" title="Kaart inbakken zodat crew geen upload nodig heeft" style="background:#1a4a2a;border-color:#27ae60;color:#2ecc71">📌 Publiceer voor crew</button>
   <span id="status-msg">Laad een kaartafbeelding om te beginnen</span>
 </div>
 
@@ -228,6 +229,8 @@
 </div>
 
 <script>
+/* MAP_DATA_START */const EMBEDDED_MAP = null;/* MAP_DATA_END */
+
 // ─── STATE ──────────────────────────────────────────────────────────────────
 const canvas = document.getElementById('draw-canvas');
 const ctx    = canvas.getContext('2d');
@@ -298,7 +301,11 @@ document.getElementById('file-input').addEventListener('change', e => {
 });
 
 function loadImage(f) {
-  const url = URL.createObjectURL(f);
+  saveMapBlob(f, 'image', f.name);
+  _loadImageFromURL(URL.createObjectURL(f), f.name);
+}
+
+function _loadImageFromURL(url, name) {
   bgImg.onload = () => {
     imgW = bgImg.naturalWidth;
     imgH = bgImg.naturalHeight;
@@ -307,7 +314,7 @@ function loadImage(f) {
     document.getElementById('pdf-page-controls').style.display = 'none';
     resetZoom();
     setStatus_msg();
-    document.getElementById('status-msg').textContent = `Kaart geladen: ${f.name} (${imgW}×${imgH}px)`;
+    document.getElementById('status-msg').textContent = `Kaart geladen: ${name} (${imgW}×${imgH}px)`;
   };
   bgImg.src = url;
 }
@@ -317,25 +324,30 @@ function loadPDF(f) {
     document.getElementById('status-msg').textContent = 'PDF.js laadt nog, probeer opnieuw…';
     return;
   }
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  saveMapBlob(f, 'pdf', f.name);
   const reader = new FileReader();
   reader.onload = async ev => {
-    document.getElementById('status-msg').textContent = 'PDF wordt verwerkt…';
-    try {
-      pdfDoc = await pdfjsLib.getDocument({ data: ev.target.result }).promise;
-      pdfTotalPages = pdfDoc.numPages;
-      pdfPageNum = 1;
-      await renderPDFPage(pdfPageNum);
-      const ctrl = document.getElementById('pdf-page-controls');
-      ctrl.style.display = pdfTotalPages > 1 ? 'flex' : 'none';
-      document.getElementById('status-msg').textContent =
-        `PDF geladen: ${f.name} (${pdfTotalPages} pagina${pdfTotalPages>1?'s':''})`;
-    } catch(err) {
-      document.getElementById('status-msg').textContent = 'Fout bij laden PDF: ' + err.message;
-    }
+    await _loadPDFFromArrayBuffer(ev.target.result, f.name, true);
   };
   reader.readAsArrayBuffer(f);
+}
+
+async function _loadPDFFromArrayBuffer(ab, name, showMsg) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  if (showMsg) document.getElementById('status-msg').textContent = 'PDF wordt verwerkt…';
+  try {
+    pdfDoc = await pdfjsLib.getDocument({ data: ab }).promise;
+    pdfTotalPages = pdfDoc.numPages;
+    pdfPageNum = 1;
+    await renderPDFPage(pdfPageNum);
+    const ctrl = document.getElementById('pdf-page-controls');
+    ctrl.style.display = pdfTotalPages > 1 ? 'flex' : 'none';
+    document.getElementById('status-msg').textContent =
+      `PDF geladen: ${name} (${pdfTotalPages} pagina${pdfTotalPages>1?'s':''})`;
+  } catch(err) {
+    document.getElementById('status-msg').textContent = 'Fout bij laden PDF: ' + err.message;
+  }
 }
 
 async function renderPDFPage(pageNum) {
@@ -789,6 +801,64 @@ function render() {
   ctx.restore();
 }
 
+// ─── INDEXEDDB (kaartopslag) ─────────────────────────────────────────────────
+const DB_NAME    = 'dreamville_sitekaart';
+const DB_VERSION = 1;
+const STORE_MAP  = 'kaart';
+let db = null;
+
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      e.target.result.createObjectStore(STORE_MAP);
+    };
+    req.onsuccess = e => { db = e.target.result; res(db); };
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+function dbPut(key, value) {
+  if (!db) return;
+  const tx = db.transaction(STORE_MAP, 'readwrite');
+  tx.objectStore(STORE_MAP).put(value, key);
+}
+
+function dbGet(key) {
+  return new Promise((res, rej) => {
+    if (!db) return res(null);
+    const tx  = db.transaction(STORE_MAP, 'readonly');
+    const req = tx.objectStore(STORE_MAP).get(key);
+    req.onsuccess = e => res(e.target.result ?? null);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+// Sla de originele blob op (afbeelding of PDF) zodat die herladen kan worden
+function saveMapBlob(blob, type, name) {
+  dbPut('map_blob', blob);
+  dbPut('map_type', type);   // 'image' | 'pdf'
+  dbPut('map_name', name);
+}
+
+async function loadSavedMap() {
+  try {
+    const blob = await dbGet('map_blob');
+    const type = await dbGet('map_type');
+    const name = await dbGet('map_name') || 'kaart';
+    if (!blob) return;
+    if (type === 'pdf') {
+      const ab = await blob.arrayBuffer();
+      await _loadPDFFromArrayBuffer(ab, name, false);
+    } else {
+      const url = URL.createObjectURL(blob);
+      _loadImageFromURL(url, name);
+    }
+  } catch(e) {
+    console.warn('Kon opgeslagen kaart niet laden:', e);
+  }
+}
+
 // ─── SAVE / LOAD ─────────────────────────────────────────────────────────────
 function saveData() {
   try {
@@ -870,12 +940,63 @@ function exportPNG() {
   });
 }
 
+// ─── PUBLICEER VOOR CREW ─────────────────────────────────────────────────────
+// Bakt de huidige kaart als base64 in het HTML-bestand zelf,
+// zodat crew het bestand kan openen zonder iets te uploaden.
+async function getMapDataURL() {
+  if (!imageLoaded) return null;
+  if (bgImg.src.startsWith('data:')) return bgImg.src;
+  // object URL → canvas → data URL
+  const c = document.createElement('canvas');
+  c.width = imgW; c.height = imgH;
+  c.getContext('2d').drawImage(bgImg, 0, 0);
+  return c.toDataURL('image/png');
+}
+
+async function saveMapToFile() {
+  if (!imageLoaded) { alert('Laad eerst een kaartafbeelding.'); return; }
+  const btn = document.getElementById('btn-publish');
+  btn.textContent = '⏳ Bezig…'; btn.disabled = true;
+  try {
+    const dataURL = await getMapDataURL();
+    const escaped = dataURL.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    let html = document.documentElement.outerHTML;
+    html = html.replace(
+      /\/\* MAP_DATA_START \*\/const EMBEDDED_MAP\s*=\s*(?:null|"[^"]*");\/\* MAP_DATA_END \*\//,
+      `/* MAP_DATA_START */const EMBEDDED_MAP = "${escaped}";/* MAP_DATA_END */`
+    );
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'sitekaart.html';
+    a.click();
+    btn.textContent = '✅ Gedownload!';
+    setTimeout(() => { btn.textContent = '📌 Publiceer voor crew'; btn.disabled = false; }, 2500);
+  } catch(e) {
+    alert('Fout: ' + e.message);
+    btn.textContent = '📌 Publiceer voor crew'; btn.disabled = false;
+  }
+}
+
 // ─── INIT ────────────────────────────────────────────────────────────────────
 loadData();
 resizeCanvas();
 render();
 setStatus_msg();
 if (zones.length||lines.length) refreshList();
+
+// 1. Ingebakken kaart laden (crew-versie) — heeft prioriteit
+if (typeof EMBEDDED_MAP === 'string' && EMBEDDED_MAP) {
+  _loadImageFromURL(EMBEDDED_MAP, 'Ingebakken kaart');
+} else {
+  // 2. Herstel kaart uit IndexedDB (eigen browser)
+  openDB().then(() => {
+    loadSavedMap();
+    document.getElementById('status-msg').textContent = 'Kaart wordt hersteld…';
+  }).catch(() => {
+    document.getElementById('status-msg').textContent = 'Laad een kaartafbeelding om te beginnen';
+  });
+}
 </script>
 </body>
 </html>
