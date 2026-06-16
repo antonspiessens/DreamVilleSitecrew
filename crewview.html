@@ -88,12 +88,13 @@ header { flex-shrink: 0; background: var(--surface); border-bottom: 1px solid va
 
 /* ── Contactenlijst ── */
 .contact-group { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
-.contact-group-title { font-size: 13px; font-weight: 800; margin-bottom: 10px; }
-.contact-table { display: flex; flex-direction: column; gap: 6px; }
-.contact-row { display: grid; grid-template-columns: 1fr 1fr auto; align-items: center; gap: 8px; font-size: 12px; padding: 6px 8px; background: var(--surface); border-radius: 6px; border: 1px solid var(--border); }
+.contact-group-title { font-size: 13px; font-weight: 800; margin-bottom: 8px; }
+.contact-col-header { display: grid; grid-template-columns: 1fr 1fr 130px; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 0 6px 4px; }
+.contact-table { display: flex; flex-direction: column; gap: 5px; }
+.contact-row.cr-ro { display: grid; grid-template-columns: 1fr 1fr 130px; align-items: center; gap: 6px; font-size: 12px; padding: 6px 8px; background: var(--surface); border-radius: 6px; border: 1px solid var(--border); }
 .contact-role { font-weight: 600; color: var(--fg); }
 .contact-name { color: var(--muted); }
-.contact-tel { text-align: right; min-width: 90px; }
+.contact-tel { text-align: right; }
 .contact-phone { color: var(--blue); text-decoration: none; font-weight: 600; }
 .contact-phone:hover { text-decoration: underline; }
 .contact-empty { color: var(--border); font-style: italic; }
@@ -1042,8 +1043,8 @@ function renderPhase() {
   let dates = allUniqueDates();
   if(hideEmptyDays) dates = dates.filter(d=>dayHasContent(d));
 
-  const today = new Date(); today.setHours(0,0,0,0);
-  const todayStr = today.toISOString().slice(0,10);
+  const _t = new Date();
+  const todayStr = `${_t.getFullYear()}-${String(_t.getMonth()+1).padStart(2,'0')}-${String(_t.getDate()).padStart(2,'0')}`;
   const pastDates = dates.filter(d=>d < todayStr);
   const upcomingDates = dates.filter(d=>d >= todayStr);
 
@@ -1627,91 +1628,79 @@ else document.querySelector('.ptab.op').classList.add('active');
 renderOpeningCountdown();
 render();
 // ═══════════════════════════════════════════════════════
-// CONTACTENLIJST (zelfde data als index)
+// CONTACTENLIJST — leest uit localStorage (ingevuld via index)
 // ═══════════════════════════════════════════════════════
-const CONTACT_GROUPS = [
-  {
-    title: '🏗️ Sitecrew — Opbouw',
-    roles: [
-      { role: 'Crewchef opbouw', name: '', phone: '' },
-      { role: 'Teamleader hekwerk', name: '', phone: '' },
-      { role: 'Teamleader grasmatten', name: '', phone: '' },
-      { role: 'Teamleader logistiek', name: '', phone: '' },
-      { role: 'Teamleader elektriciteit', name: '', phone: '' },
-    ]
-  },
-  {
-    title: '🎪 Sitecrew — Show',
-    roles: [
-      { role: 'Crewchef show', name: '', phone: '' },
-      { role: 'Teamleader terrein', name: '', phone: '' },
-      { role: 'Teamleader camping', name: '', phone: '' },
-      { role: 'Teamleader gates', name: '', phone: '' },
-    ]
-  },
-  {
-    title: '📦 Sitecrew — Afbouw',
-    roles: [
-      { role: 'Crewchef afbouw', name: '', phone: '' },
-      { role: 'Teamleader demontage', name: '', phone: '' },
-      { role: 'Teamleader opruiming', name: '', phone: '' },
-    ]
-  },
-  {
-    title: '🚛 Drivers & Logistiek',
-    roles: [
-      { role: 'Hoofddriver', name: '', phone: '' },
-      { role: 'Driver 1', name: '', phone: '' },
-      { role: 'Driver 2', name: '', phone: '' },
-      { role: 'Driver 3', name: '', phone: '' },
-    ]
-  },
-  {
-    title: '🏢 Productie & Management',
-    roles: [
-      { role: 'Productiemanager', name: '', phone: '' },
-      { role: 'Sitemanager', name: '', phone: '' },
-      { role: 'Veiligheidscoördinator', name: '', phone: '' },
-      { role: 'EHBO-verantwoordelijke', name: '', phone: '' },
-    ]
-  },
-  {
-    title: '🔧 Externe diensten',
-    roles: [
-      { role: 'Hekwerk leverancier', name: '', phone: '' },
-      { role: 'Grasmattenleverancier', name: '', phone: '' },
-      { role: 'Stroomaggregaat', name: '', phone: '' },
-      { role: 'Kraanoperator', name: '', phone: '' },
-    ]
-  },
-  {
-    title: '🚨 Noodcontacten',
-    roles: [
-      { role: 'Brandweer / 112', name: '', phone: '' },
-      { role: 'Politie', name: '', phone: '' },
-      { role: 'Lokale brandpost', name: '', phone: '' },
-      { role: 'Ziekenwagen planning', name: '', phone: '' },
-      { role: 'Gemeentelijk contactpersoon', name: '', phone: '' },
-    ]
-  }
+const CONTACTS_KEY = 'dv26_contacts';
+const DEFAULT_CONTACTS = [
+  { title: '🏗️ Sitecrew — Opbouw', rows: [
+    { role: 'Crewchef opbouw', name: '', phone: '' },
+    { role: 'Teamleader hekwerk', name: '', phone: '' },
+    { role: 'Teamleader grasmatten', name: '', phone: '' },
+    { role: 'Teamleader logistiek', name: '', phone: '' },
+    { role: 'Teamleader elektriciteit', name: '', phone: '' },
+  ]},
+  { title: '🎪 Sitecrew — Show', rows: [
+    { role: 'Crewchef show', name: '', phone: '' },
+    { role: 'Teamleader terrein', name: '', phone: '' },
+    { role: 'Teamleader camping', name: '', phone: '' },
+    { role: 'Teamleader gates', name: '', phone: '' },
+  ]},
+  { title: '📦 Sitecrew — Afbouw', rows: [
+    { role: 'Crewchef afbouw', name: '', phone: '' },
+    { role: 'Teamleader demontage', name: '', phone: '' },
+    { role: 'Teamleader opruiming', name: '', phone: '' },
+  ]},
+  { title: '🚛 Drivers & Logistiek', rows: [
+    { role: 'Hoofddriver', name: '', phone: '' },
+    { role: 'Driver 1', name: '', phone: '' },
+    { role: 'Driver 2', name: '', phone: '' },
+    { role: 'Driver 3', name: '', phone: '' },
+  ]},
+  { title: '🏢 Productie & Management', rows: [
+    { role: 'Productiemanager', name: '', phone: '' },
+    { role: 'Sitemanager', name: '', phone: '' },
+    { role: 'Veiligheidscoördinator', name: '', phone: '' },
+    { role: 'EHBO-verantwoordelijke', name: '', phone: '' },
+  ]},
+  { title: '🔧 Externe diensten', rows: [
+    { role: 'Hekwerk leverancier', name: '', phone: '' },
+    { role: 'Grasmattenleverancier', name: '', phone: '' },
+    { role: 'Stroomaggregaat', name: '', phone: '' },
+    { role: 'Kraanoperator', name: '', phone: '' },
+  ]},
+  { title: '🚨 Noodcontacten', rows: [
+    { role: 'Brandweer / 112', name: '', phone: '' },
+    { role: 'Politie', name: '', phone: '' },
+    { role: 'Lokale brandpost', name: '', phone: '' },
+    { role: 'Ziekenwagen planning', name: '', phone: '' },
+    { role: 'Gemeentelijk contactpersoon', name: '', phone: '' },
+  ]},
 ];
 
-function renderContactenView() {
-  let html = `<h2>📞 Contactenlijst</h2>
-  <p class="mat-intro">Overzicht van alle sleutelpersonen per team. Namen en nummers worden later aangevuld.</p>`;
+function contactLoad() {
+  try { const d = JSON.parse(localStorage.getItem(CONTACTS_KEY)); return (d && d.length) ? d : DEFAULT_CONTACTS; }
+  catch(e) { return DEFAULT_CONTACTS; }
+}
 
-  CONTACT_GROUPS.forEach(group => {
+function renderContactenView() {
+  const data = contactLoad();
+  let html = `<h2>📞 Contactenlijst</h2>`;
+
+  data.forEach(group => {
+    const rows = group.rows || group.roles || [];
+    if(!rows.some(r => r.role || r.name || r.phone)) return; // sla lege groepen over
     html += `<div class="contact-group">
-      <div class="contact-group-title">${group.title}</div>
+      <div class="contact-group-title">${group.title||''}</div>
+      <div class="contact-col-header"><span>Functie</span><span>Naam</span><span>Nummer</span></div>
       <div class="contact-table">`;
-    group.roles.forEach(r => {
-      const nameHtml = r.name ? r.name : '<span class="contact-empty">—</span>';
+    rows.forEach(r => {
+      if(!r.role && !r.name && !r.phone) return;
       const phoneHtml = r.phone
         ? `<a class="contact-phone" href="tel:${r.phone}">${r.phone}</a>`
         : '<span class="contact-empty">—</span>';
-      html += `<div class="contact-row">
-        <div class="contact-role">${r.role}</div>
-        <div class="contact-name">${nameHtml}</div>
+      html += `<div class="contact-row cr-ro">
+        <div class="contact-role">${r.role||'—'}</div>
+        <div class="contact-name">${r.name||'<span class="contact-empty">—</span>'}</div>
         <div class="contact-tel">${phoneHtml}</div>
       </div>`;
     });

@@ -126,9 +126,9 @@ body.edit-mode td.cc:not(.sec):hover { outline: 2px dashed var(--yellow); outlin
 .weather-icon { font-size: 22px; margin: 4px 0 2px; }
 .weather-temp { font-size: 13px; font-weight: 700; }
 .weather-indicators { display: flex; justify-content: center; gap: 5px; margin-top: 6px; }
-.wi { font-size: 13px; opacity: .2; transition: opacity .15s, filter .15s; }
-.wi.warn { opacity: 1; filter: sepia(1) saturate(5) hue-rotate(0deg) brightness(.95); color: #ff9800; }
-.wi.danger { opacity: 1; filter: sepia(1) saturate(5) hue-rotate(-30deg) brightness(.9); color: #ef5350; }
+.wi { font-size: 13px; opacity: .2; }
+.wi.warn { opacity: 1; color: #ff9800; }
+.wi.danger { opacity: 1; color: #ef5350; }
 .weather-loading, .weather-na { font-size: 12px; color: var(--muted); }
 .home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); gap: 16px; align-items: start; }
 .home-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
@@ -357,15 +357,23 @@ td.cc.inactive { cursor: default; }
 
 /* ── Contactenlijst ── */
 .contact-group { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
-.contact-group-title { font-size: 13px; font-weight: 800; margin-bottom: 10px; }
-.contact-table { display: flex; flex-direction: column; gap: 6px; }
-.contact-row { display: grid; grid-template-columns: 1fr 1fr auto; align-items: center; gap: 8px; font-size: 12px; padding: 6px 8px; background: var(--surface); border-radius: 6px; border: 1px solid var(--border); }
-.contact-role { font-weight: 600; color: var(--fg); }
-.contact-name { color: var(--muted); }
-.contact-tel { text-align: right; min-width: 90px; }
-.contact-phone { color: var(--blue); text-decoration: none; font-weight: 600; }
-.contact-phone:hover { text-decoration: underline; }
-.contact-empty { color: var(--border); font-style: italic; }
+.contact-group-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cg-title-input { flex: 1; font-size: 13px; font-weight: 800; background: transparent; border: none; border-bottom: 1px dashed var(--border); color: var(--fg); padding: 2px 4px; outline: none; }
+.cg-title-input:focus { border-bottom-color: var(--accent); }
+.cg-del-btn { background: none; border: none; cursor: pointer; font-size: 14px; opacity: .4; padding: 2px 4px; border-radius: 4px; }
+.cg-del-btn:hover { opacity: 1; background: rgba(239,83,80,.15); }
+.contact-col-header { display: grid; grid-template-columns: 1fr 1fr 130px 28px; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 0 6px 4px; }
+.contact-table { display: flex; flex-direction: column; gap: 5px; }
+.contact-row { display: grid; grid-template-columns: 1fr 1fr 130px 28px; align-items: center; gap: 6px; padding: 5px 6px; background: var(--surface); border-radius: 6px; border: 1px solid var(--border); }
+.contact-row input { background: transparent; border: none; color: var(--fg); font-size: 12px; outline: none; width: 100%; padding: 2px; border-bottom: 1px solid transparent; }
+.contact-row input:focus { border-bottom-color: var(--accent); }
+.contact-row input::placeholder { color: var(--border); }
+.cr-del-btn { background: none; border: none; cursor: pointer; font-size: 12px; opacity: .3; color: var(--fg); padding: 2px; border-radius: 3px; }
+.cr-del-btn:hover { opacity: 1; color: var(--rw); }
+.contact-add-row-btn { margin-top: 8px; background: none; border: 1px dashed var(--border); border-radius: 6px; color: var(--muted); font-size: 11px; padding: 5px 10px; cursor: pointer; width: 100%; }
+.contact-add-row-btn:hover { border-color: var(--accent); color: var(--accent); }
+.contact-add-group-btn { display: block; width: 100%; background: none; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted); font-size: 12px; padding: 8px; cursor: pointer; margin-top: 4px; }
+.contact-add-group-btn:hover { border-color: var(--accent); color: var(--accent); }
 .mat-week { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
 .mat-week-title { font-size: 13px; font-weight: 800; margin-bottom: 8px; }
 .mat-pills { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -3647,96 +3655,107 @@ setTimeout(()=>{
 // ═══════════════════════════════════════════════════════
 // CONTACTENLIJST
 // ═══════════════════════════════════════════════════════
-const CONTACT_GROUPS = [
-  {
-    title: '🏗️ Sitecrew — Opbouw',
-    roles: [
-      { role: 'Crewchef opbouw', name: '', phone: '' },
-      { role: 'Teamleader hekwerk', name: '', phone: '' },
-      { role: 'Teamleader grasmatten', name: '', phone: '' },
-      { role: 'Teamleader logistiek', name: '', phone: '' },
-      { role: 'Teamleader elektriciteit', name: '', phone: '' },
-    ]
-  },
-  {
-    title: '🎪 Sitecrew — Show',
-    roles: [
-      { role: 'Crewchef show', name: '', phone: '' },
-      { role: 'Teamleader terrein', name: '', phone: '' },
-      { role: 'Teamleader camping', name: '', phone: '' },
-      { role: 'Teamleader gates', name: '', phone: '' },
-    ]
-  },
-  {
-    title: '📦 Sitecrew — Afbouw',
-    roles: [
-      { role: 'Crewchef afbouw', name: '', phone: '' },
-      { role: 'Teamleader demontage', name: '', phone: '' },
-      { role: 'Teamleader opruiming', name: '', phone: '' },
-    ]
-  },
-  {
-    title: '🚛 Drivers & Logistiek',
-    roles: [
-      { role: 'Hoofddriver', name: '', phone: '' },
-      { role: 'Driver 1', name: '', phone: '' },
-      { role: 'Driver 2', name: '', phone: '' },
-      { role: 'Driver 3', name: '', phone: '' },
-    ]
-  },
-  {
-    title: '🏢 Productie & Management',
-    roles: [
-      { role: 'Productiemanager', name: '', phone: '' },
-      { role: 'Sitemanager', name: '', phone: '' },
-      { role: 'Veiligheidscoördinator', name: '', phone: '' },
-      { role: 'EHBO-verantwoordelijke', name: '', phone: '' },
-    ]
-  },
-  {
-    title: '🔧 Externe diensten',
-    roles: [
-      { role: 'Hekwerk leverancier', name: '', phone: '' },
-      { role: 'Grasmattenleverancier', name: '', phone: '' },
-      { role: 'Stroomaggregaat', name: '', phone: '' },
-      { role: 'Kraanoperator', name: '', phone: '' },
-    ]
-  },
-  {
-    title: '🚨 Noodcontacten',
-    roles: [
-      { role: 'Brandweer / 112', name: '', phone: '' },
-      { role: 'Politie', name: '', phone: '' },
-      { role: 'Lokale brandpost', name: '', phone: '' },
-      { role: 'Ziekenwagen planning', name: '', phone: '' },
-      { role: 'Gemeentelijk contactpersoon', name: '', phone: '' },
-    ]
-  }
+// ── Contacten: localStorage ──
+const CONTACTS_KEY = 'dv26_contacts';
+const DEFAULT_CONTACTS = [
+  { title: '🏗️ Sitecrew — Opbouw', rows: [
+    { role: 'Crewchef opbouw', name: '', phone: '' },
+    { role: 'Teamleader hekwerk', name: '', phone: '' },
+    { role: 'Teamleader grasmatten', name: '', phone: '' },
+    { role: 'Teamleader logistiek', name: '', phone: '' },
+    { role: 'Teamleader elektriciteit', name: '', phone: '' },
+  ]},
+  { title: '🎪 Sitecrew — Show', rows: [
+    { role: 'Crewchef show', name: '', phone: '' },
+    { role: 'Teamleader terrein', name: '', phone: '' },
+    { role: 'Teamleader camping', name: '', phone: '' },
+    { role: 'Teamleader gates', name: '', phone: '' },
+  ]},
+  { title: '📦 Sitecrew — Afbouw', rows: [
+    { role: 'Crewchef afbouw', name: '', phone: '' },
+    { role: 'Teamleader demontage', name: '', phone: '' },
+    { role: 'Teamleader opruiming', name: '', phone: '' },
+  ]},
+  { title: '🚛 Drivers & Logistiek', rows: [
+    { role: 'Hoofddriver', name: '', phone: '' },
+    { role: 'Driver 1', name: '', phone: '' },
+    { role: 'Driver 2', name: '', phone: '' },
+    { role: 'Driver 3', name: '', phone: '' },
+  ]},
+  { title: '🏢 Productie & Management', rows: [
+    { role: 'Productiemanager', name: '', phone: '' },
+    { role: 'Sitemanager', name: '', phone: '' },
+    { role: 'Veiligheidscoördinator', name: '', phone: '' },
+    { role: 'EHBO-verantwoordelijke', name: '', phone: '' },
+  ]},
+  { title: '🔧 Externe diensten', rows: [
+    { role: 'Hekwerk leverancier', name: '', phone: '' },
+    { role: 'Grasmattenleverancier', name: '', phone: '' },
+    { role: 'Stroomaggregaat', name: '', phone: '' },
+    { role: 'Kraanoperator', name: '', phone: '' },
+  ]},
+  { title: '🚨 Noodcontacten', rows: [
+    { role: 'Brandweer / 112', name: '', phone: '' },
+    { role: 'Politie', name: '', phone: '' },
+    { role: 'Lokale brandpost', name: '', phone: '' },
+    { role: 'Ziekenwagen planning', name: '', phone: '' },
+    { role: 'Gemeentelijk contactpersoon', name: '', phone: '' },
+  ]},
 ];
+
+function contactLoad() {
+  try { const d = JSON.parse(localStorage.getItem(CONTACTS_KEY)); return (d && d.length) ? d : DEFAULT_CONTACTS; }
+  catch(e) { return DEFAULT_CONTACTS; }
+}
+function contactSave(data) { localStorage.setItem(CONTACTS_KEY, JSON.stringify(data)); }
+
+function contactCollect() {
+  const data = [];
+  document.querySelectorAll('.cg-block').forEach(gEl => {
+    const rows = [];
+    gEl.querySelectorAll('.cr-row').forEach(rEl => {
+      rows.push({
+        role: rEl.querySelector('.cr-role').value,
+        name: rEl.querySelector('.cr-name').value,
+        phone: rEl.querySelector('.cr-phone').value,
+      });
+    });
+    data.push({ title: gEl.querySelector('.cg-title-input').value, rows });
+  });
+  contactSave(data);
+}
+
+function contactAddRow(gi) { contactCollect(); const d = contactLoad(); d[gi].rows.push({role:'',name:'',phone:''}); contactSave(d); renderContactenView(); }
+function contactDeleteRow(gi, ri) { contactCollect(); const d = contactLoad(); d[gi].rows.splice(ri,1); contactSave(d); renderContactenView(); }
+function contactAddGroup() { contactCollect(); const d = contactLoad(); d.push({title:'Nieuwe groep',rows:[{role:'',name:'',phone:''}]}); contactSave(d); renderContactenView(); }
+function contactDeleteGroup(gi) { if(!confirm('Groep verwijderen?')) return; contactCollect(); const d = contactLoad(); d.splice(gi,1); contactSave(d); renderContactenView(); }
 
 function renderContactenView() {
   const el = document.getElementById('view-contacten');
-  let html = `<h2>📞 Contactenlijst</h2>
-  <p class="mat-intro">Overzicht van alle sleutelpersonen per team. Namen en nummers worden later aangevuld.</p>`;
+  const data = contactLoad();
+  let html = `<h2>📞 Contactenlijst</h2>`;
 
-  CONTACT_GROUPS.forEach(group => {
-    html += `<div class="contact-group">
-      <div class="contact-group-title">${group.title}</div>
+  data.forEach((group, gi) => {
+    html += `<div class="contact-group cg-block">
+      <div class="contact-group-header">
+        <input class="cg-title-input" value="${esc(group.title)}" oninput="contactCollect()" placeholder="Groepsnaam">
+        <button class="cg-del-btn" onclick="contactDeleteGroup(${gi})" title="Groep verwijderen">🗑️</button>
+      </div>
+      <div class="contact-col-header"><span>Functie</span><span>Naam</span><span>Nummer</span><span></span></div>
       <div class="contact-table">`;
-    group.roles.forEach(r => {
-      const nameHtml = r.name ? r.name : '<span class="contact-empty">—</span>';
-      const phoneHtml = r.phone
-        ? `<a class="contact-phone" href="tel:${r.phone}">${r.phone}</a>`
-        : '<span class="contact-empty">—</span>';
-      html += `<div class="contact-row">
-        <div class="contact-role">${r.role}</div>
-        <div class="contact-name">${nameHtml}</div>
-        <div class="contact-tel">${phoneHtml}</div>
+    (group.rows||[]).forEach((r, ri) => {
+      html += `<div class="contact-row cr-row">
+        <input class="cr-role" value="${esc(r.role)}" oninput="contactCollect()" placeholder="Functie">
+        <input class="cr-name" value="${esc(r.name)}" oninput="contactCollect()" placeholder="Naam">
+        <input class="cr-phone" value="${esc(r.phone)}" oninput="contactCollect()" placeholder="Nummer" type="tel">
+        <button class="cr-del-btn" onclick="contactDeleteRow(${gi},${ri})" title="Rij verwijderen">✕</button>
       </div>`;
     });
-    html += `</div></div>`;
+    html += `</div>
+      <button class="contact-add-row-btn" onclick="contactAddRow(${gi})">+ Rij toevoegen</button>
+    </div>`;
   });
-
+  html += `<button class="contact-add-group-btn" onclick="contactAddGroup()">+ Groep toevoegen</button>`;
   el.innerHTML = html;
 }
 
