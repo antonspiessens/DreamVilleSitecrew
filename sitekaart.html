@@ -381,9 +381,10 @@ async function changePdfPage(delta) {
 
 // ─── ZOOM & PAN ──────────────────────────────────────────────────────────────
 function applyTransform() {
-  const t = `translate(${panX}px,${panY}px) scale(${zoom})`;
-  bgImg.style.transform    = t;
-  canvas.style.transform   = t;
+  // Alleen de achtergrondafbeelding krijgt de CSS-transform.
+  // Het canvas blijft altijd even groot als de wrap; de render()-functie
+  // past zelf ctx.translate/scale toe — dubbele transform vermijden.
+  bgImg.style.transform = `translate(${panX}px,${panY}px) scale(${zoom})`;
 }
 
 function changeZoom(factor) {
