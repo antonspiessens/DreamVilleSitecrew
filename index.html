@@ -383,6 +383,10 @@ td.cc.inactive { cursor: default; }
 .tcal-task-chip:hover { opacity: 1; transform: none; }
 .tcal-task-chip.done { background: var(--green); opacity: .55; }
 .tcal-task-chip.bezig { background: var(--yellow); color: #1a1a1a; }
+.tcal-day.tcal-clickable { cursor: pointer; }
+.tcal-day.tcal-clickable:hover { border-color: var(--accent); }
+.tcal-day.tcal-clickable:hover .tcal-add-hint { opacity: 1; }
+.tcal-add-hint { font-size: 9px; color: var(--accent); opacity: 0; transition: opacity .15s; margin-top: auto; padding-top: 2px; font-weight: 700; }
 .task-filter-bar input, .task-filter-bar select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 7px 10px; font-size: 12px; font-family: inherit; outline: none; }
 .task-filter-bar input[type=text] { flex: 1; min-width: 160px; }
 .task-filter-bar input:focus, .task-filter-bar select:focus { border-color: var(--accent); }
@@ -2655,7 +2659,7 @@ function renderConflictsBanner() {
 function renderTasksOverview() {
   const all = loadTasks();
   const todayStr = new Date().toISOString().slice(0,10);
-  let html = `<div class="sec-title"><h2 style="margin-bottom:0">Takenoverzicht</h2>${tasksViewMode==='lijst'?'<button class="btn-primary" onclick="showNewTaskForm()">+ Nieuwe taak</button>':''}</div>`;
+  let html = `<div class="sec-title"><h2 style="margin-bottom:0">Takenoverzicht</h2><button class="btn-primary" onclick="showNewTaskForm()">+ Nieuwe taak</button></div>`;
 
   html += renderConflictsBanner();
   html += renderTasksFilterBar(all);
@@ -2773,15 +2777,19 @@ function renderTasksCalendarView(all) {
       const isScheduled=allSlotDates[dateStr];
       const dayTasks=byDate[dateStr]||[];
       const isToday=dateStr===todayStr;
+      const firstSlotId = isScheduled ? (SCHEDULE.find(s=>slotBaseDate(s.id)===dateStr)||{}).id : null;
       let cls='tcal-day';
       if(!isScheduled) cls+=' tcal-no-slot';
+      else cls+=' tcal-clickable';
       if(isToday) cls+=' tcal-today';
       if(dayTasks.length>0) cls+=' tcal-has-tasks';
-      html+=`<div class="${cls}"><div class="tcal-daynum">${d}${isToday?'<span class="tcal-today-dot"></span>':''}</div>`;
+      const clickAttr = firstSlotId ? `onclick="calDayAddTask('${firstSlotId}')"` : '';
+      html+=`<div class="${cls}" ${clickAttr}><div class="tcal-daynum">${d}${isToday?'<span class="tcal-today-dot"></span>':''}</div>`;
       dayTasks.forEach(({slotId,task})=>{
         const stCls=statusCls(task);
-        html+=`<div class="tcal-task-chip ${stCls}" onclick="openCalTaskModal('${slotId}','${task.id}')" title="${esc(task.title)}">${esc(task.title)}</div>`;
+        html+=`<div class="tcal-task-chip ${stCls}" onclick="event.stopPropagation();openCalTaskModal('${slotId}','${task.id}')" title="${esc(task.title)}">${esc(task.title)}</div>`;
       });
+      if(firstSlotId) html+=`<div class="tcal-add-hint">+ taak</div>`;
       html+='</div>';
     }
     html+='</div></div>';
@@ -2835,6 +2843,11 @@ function openCalTaskModal(slotId, taskId) {
 
 function closeCalTaskModal() {
   document.getElementById('calTaskModalWrap')?.remove();
+}
+
+function calDayAddTask(slotId) {
+  setTasksViewMode('lijst');
+  showNewTaskForm(slotId);
 }
 
 // ── Filter/zoekbalk Takenoverzicht ──
