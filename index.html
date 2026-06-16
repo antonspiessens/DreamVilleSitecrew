@@ -120,6 +120,10 @@ body.edit-mode td.cc:not(.sec):hover { outline: 2px dashed var(--yellow); outlin
 .weather-loc { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
 .weather-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 10px; }
 .weather-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; text-align: center; }
+.weather-card.heat-warn { background: rgba(255,152,0,.15); border-color: rgba(255,152,0,.5); }
+.weather-card.heat-warn .weather-temp { color: #ff9800; }
+.weather-card.heat-danger { background: rgba(239,83,80,.15); border-color: rgba(239,83,80,.5); }
+.weather-card.heat-danger .weather-temp { color: #ef5350; }
 .weather-day { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .weather-icon { font-size: 24px; margin: 4px 0; }
 .weather-temp { font-size: 13px; font-weight: 700; }
@@ -358,6 +362,27 @@ td.cc.inactive { cursor: default; }
 
 /* ── Takenoverzicht filterbalk ── */
 .task-filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+
+/* ── Takenoverzicht weergave-toggle ── */
+.tasks-view-toggle { display: flex; gap: 4px; margin-bottom: 14px; }
+.tasks-view-toggle button { padding: 5px 13px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); transition: all 0.15s; letter-spacing: 0.03em; }
+.tasks-view-toggle button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+/* ── Takenkalender ── */
+.tcal-month { margin-bottom: 20px; }
+.tcal-month-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px; }
+.tcal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.tcal-dow { font-size: 10px; color: var(--muted); text-align: center; font-weight: 700; padding-bottom: 3px; }
+.tcal-day { border-radius: 7px; min-height: 52px; padding: 4px 5px; box-sizing: border-box; border: 1px solid transparent; display: flex; flex-direction: column; gap: 2px; }
+.tcal-day.empty { visibility: hidden; }
+.tcal-no-slot .tcal-daynum { opacity: .2; }
+.tcal-has-tasks { background: var(--surface2); border-color: var(--border); }
+.tcal-today .tcal-daynum { color: var(--accent); }
+.tcal-daynum { font-size: 10px; font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 3px; line-height: 1; margin-bottom: 1px; }
+.tcal-today-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+.tcal-task-chip { font-size: 9px; line-height: 1.35; padding: 2px 5px; border-radius: 4px; background: var(--accent); color: #fff; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; opacity: .9; transition: opacity .12s; }
+.tcal-task-chip:hover { opacity: 1; transform: none; }
+.tcal-task-chip.done { background: var(--green); opacity: .55; }
+.tcal-task-chip.bezig { background: var(--yellow); color: #1a1a1a; }
 .task-filter-bar input, .task-filter-bar select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 7px 10px; font-size: 12px; font-family: inherit; outline: none; }
 .task-filter-bar input[type=text] { flex: 1; min-width: 160px; }
 .task-filter-bar input:focus, .task-filter-bar select:focus { border-color: var(--accent); }
@@ -990,6 +1015,7 @@ let tvFilterAssignee = ''; // filter op verantwoordelijke in Takenoverzicht
 let tvFilterStatus = '';   // filter op status in Takenoverzicht
 let tvFilterPrio = '';     // filter op prioriteit in Takenoverzicht
 let tvFilterZone = '';     // filter op zone in Takenoverzicht
+let tasksViewMode = 'lijst'; // 'lijst' | 'kalender'
 let materialsShowWeekly = true; // toon wekelijks materiaaloverzicht (piekbehoefte)
 
 // ═══════════════════════════════════════════════════════
@@ -1492,8 +1518,10 @@ function renderWeatherCard(label, dateStr, data) {
   const max = Math.round(data.daily.temperature_2m_max[idx]);
   const min = Math.round(data.daily.temperature_2m_min[idx]);
   const precip = data.daily.precipitation_probability_max[idx];
-  return `<div class="weather-card">
-    <div class="weather-day">${label}</div>
+  const heatCls = max >= 34 ? ' heat-danger' : max >= 30 ? ' heat-warn' : '';
+  const heatBadge = max >= 34 ? ' 🔴' : max >= 30 ? ' 🟠' : '';
+  return `<div class="weather-card${heatCls}">
+    <div class="weather-day">${label}${heatBadge}</div>
     <div class="weather-icon" title="${esc(info.label)}">${info.icon}</div>
     <div class="weather-temp">${min}° / ${max}°</div>
     <div class="weather-precip">💧 ${precip}%</div>
@@ -2620,10 +2648,20 @@ function renderConflictsBanner() {
 function renderTasksOverview() {
   const all = loadTasks();
   const todayStr = new Date().toISOString().slice(0,10);
-  let html = `<div class="sec-title"><h2 style="margin-bottom:0">Takenoverzicht</h2><button class="btn-primary" onclick="showNewTaskForm()">+ Nieuwe taak</button></div>`;
+  let html = `<div class="sec-title"><h2 style="margin-bottom:0">Takenoverzicht</h2>${tasksViewMode==='lijst'?'<button class="btn-primary" onclick="showNewTaskForm()">+ Nieuwe taak</button>':''}</div>`;
 
   html += renderConflictsBanner();
   html += renderTasksFilterBar(all);
+  html += `<div class="tasks-view-toggle">
+    <button class="${tasksViewMode==='lijst'?'active':''}" onclick="setTasksViewMode('lijst')">☰ Lijst</button>
+    <button class="${tasksViewMode==='kalender'?'active':''}" onclick="setTasksViewMode('kalender')">📅 Kalender</button>
+  </div>`;
+
+  if(tasksViewMode==='kalender'){
+    html += renderTasksCalendarView(all);
+    document.getElementById('view-tasks').innerHTML = html;
+    return;
+  }
 
   if(tvAddingTask){ html += renderNewTaskForm(); }
 
@@ -2689,6 +2727,107 @@ function renderTasksOverview() {
 function toggleTasksPast() {
   tasksShowPast = !tasksShowPast;
   renderTasksOverview();
+}
+
+function setTasksViewMode(mode) {
+  tasksViewMode = mode;
+  renderTasksOverview();
+}
+
+// ── Takenkalender ──
+function renderTasksCalendarView(all) {
+  const byDate = {};
+  SCHEDULE.forEach(s=>{
+    const date = slotBaseDate(s.id);
+    const tasks = (all[s.id]||[]).filter(taskMatchesFilters);
+    if(tasks.length>0){
+      if(!byDate[date]) byDate[date]=[];
+      tasks.forEach(t=>byDate[date].push({ slotId:s.id, task:t }));
+    }
+  });
+  const allSlotDates = {};
+  SCHEDULE.forEach(s=>{ allSlotDates[slotBaseDate(s.id)]=true; });
+  const allDateKeys = Object.keys(allSlotDates).sort();
+  if(allDateKeys.length===0) return '<div class="empty-msg">Geen planningsdata beschikbaar.</div>';
+  const first = new Date(allDateKeys[0]+'T00:00:00');
+  const last = new Date(allDateKeys[allDateKeys.length-1]+'T00:00:00');
+  let y=first.getFullYear(), m=first.getMonth();
+  const endY=last.getFullYear(), endM=last.getMonth();
+  const todayStr=new Date().toISOString().slice(0,10);
+  let html='';
+  while(y<endY||(y===endY&&m<=endM)){
+    const daysInMonth=new Date(y,m+1,0).getDate();
+    const firstDow=(new Date(y,m,1).getDay()+6)%7;
+    html+=`<div class="tcal-month"><div class="tcal-month-label">${CAL_MONTH_NAMES[m]} ${y}</div><div class="tcal-grid">`;
+    CAL_DOW_LABELS.forEach(d=>html+=`<div class="tcal-dow">${d}</div>`);
+    for(let i=0;i<firstDow;i++) html+=`<div class="tcal-day empty"></div>`;
+    for(let d=1;d<=daysInMonth;d++){
+      const dateStr=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const isScheduled=allSlotDates[dateStr];
+      const dayTasks=byDate[dateStr]||[];
+      const isToday=dateStr===todayStr;
+      let cls='tcal-day';
+      if(!isScheduled) cls+=' tcal-no-slot';
+      if(isToday) cls+=' tcal-today';
+      if(dayTasks.length>0) cls+=' tcal-has-tasks';
+      html+=`<div class="${cls}"><div class="tcal-daynum">${d}${isToday?'<span class="tcal-today-dot"></span>':''}</div>`;
+      dayTasks.forEach(({slotId,task})=>{
+        const stCls=statusCls(task);
+        html+=`<div class="tcal-task-chip ${stCls}" onclick="openCalTaskModal('${slotId}','${task.id}')" title="${esc(task.title)}">${esc(task.title)}</div>`;
+      });
+      html+='</div>';
+    }
+    html+='</div></div>';
+    m++; if(m>11){m=0;y++;}
+  }
+  return html||'<div class="empty-msg">Geen taken gevonden voor deze filter(s).</div>';
+}
+
+function openCalTaskModal(slotId, taskId) {
+  const tasks = getTasksForSlot(slotId);
+  const t = tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  const slot = SCHEDULE.find(s=>s.id===slotId);
+  const slotLabel = slot ? (slot.label+(slot.slot?' — '+slot.slot:'')) : slotId;
+  const subs = t.subtasks||[];
+  let subsHtml = '';
+  if(subs.length>0){
+    subsHtml='<div class="subtasks" style="margin-top:8px;">';
+    subs.forEach(s=>{
+      subsHtml+=`<div class="subitem"><div class="subcheck ${statusCls(s)}">${statusIcon(s)}</div><div class="subtitle ${statusCls(s)}">${esc(s.title)}</div></div>`;
+    });
+    subsHtml+='</div>';
+  }
+  const prioCls=(t.priority||'').toLowerCase();
+  let meta='';
+  if(t.assignee) meta+=`<span class="tc-assignee">${esc(t.assignee)}</span>`;
+  if(t.priority) meta+=`<span class="tc-prio ${prioCls}">${esc(t.priority)}</span>`;
+  if(t.zone) meta+=`<span class="tc-zone">${esc(t.zone)}</span>`;
+  const html=`<div class="modal-overlay" id="calTaskModal" onclick="if(event.target===this)closeCalTaskModal()">
+    <div class="modal-box">
+      <div style="font-size:11px;color:var(--muted);font-weight:700;margin-bottom:4px;">${esc(slotLabel)}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div class="tcheck ${statusCls(t)}">${statusIcon(t)}</div>
+        <h3 style="margin:0;font-size:15px;font-weight:800;line-height:1.3">${esc(t.title)}</h3>
+      </div>
+      ${meta?`<div class="tc-meta" style="margin-bottom:6px">${meta}</div>`:''}
+      ${t.notes?`<div class="tc-notes">${esc(t.notes)}</div>`:''}
+      ${subs.length>0?`<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:10px;">${subs.length} subtaken</div>`:''}
+      ${subsHtml}
+      <div class="form-btns" style="margin-top:12px;">
+        <button class="btn-sec" onclick="closeCalTaskModal()">Sluiten</button>
+        <button class="btn-primary" onclick="closeCalTaskModal();goToSlot('${slotId}')">↗ Open in planning</button>
+      </div>
+    </div>
+  </div>`;
+  const div=document.createElement('div');
+  div.id='calTaskModalWrap';
+  div.innerHTML=html;
+  document.body.appendChild(div);
+}
+
+function closeCalTaskModal() {
+  document.getElementById('calTaskModalWrap')?.remove();
 }
 
 // ── Filter/zoekbalk Takenoverzicht ──
