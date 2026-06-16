@@ -133,6 +133,14 @@ body.edit-mode td.cc:not(.sec):hover { outline: 2px dashed var(--yellow); outlin
 .home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); gap: 16px; align-items: start; }
 .home-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
 .home-card-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+/* ── Voortgangsbalk per dag ── */
+.day-progress { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.day-progress-label { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+.day-progress-label b { color: var(--text); }
+.day-progress-bar { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.day-progress-fill { height: 100%; border-radius: 3px; background: var(--green); transition: width .4s; }
+.day-progress-fill.half { background: var(--yellow); }
+.day-progress-fill.low  { background: var(--rw); }
 .home-card-title { font-size: 15px; font-weight: 800; }
 .home-card-date { font-size: 12px; color: var(--muted); }
 .home-slot { margin-bottom: 14px; }
@@ -346,6 +354,18 @@ td.cc.inactive { cursor: default; }
 
 /* ── Wekelijks materiaaloverzicht (piekbehoefte) ── */
 .mat-intro { font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+
+/* ── Contactenlijst ── */
+.contact-group { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+.contact-group-title { font-size: 13px; font-weight: 800; margin-bottom: 10px; }
+.contact-table { display: flex; flex-direction: column; gap: 6px; }
+.contact-row { display: grid; grid-template-columns: 1fr 1fr auto; align-items: center; gap: 8px; font-size: 12px; padding: 6px 8px; background: var(--surface); border-radius: 6px; border: 1px solid var(--border); }
+.contact-role { font-weight: 600; color: var(--fg); }
+.contact-name { color: var(--muted); }
+.contact-tel { text-align: right; min-width: 90px; }
+.contact-phone { color: var(--blue); text-decoration: none; font-weight: 600; }
+.contact-phone:hover { text-decoration: underline; }
+.contact-empty { color: var(--border); font-style: italic; }
 .mat-week { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
 .mat-week-title { font-size: 13px; font-weight: 800; margin-bottom: 8px; }
 .mat-pills { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -517,6 +537,7 @@ td.cc.inactive { cursor: default; }
     <button class="nav-item" data-view="notes" title="Notities"><span class="ni-icon">📝</span>Notities</button>
     <button class="nav-item" data-view="jaaroverzicht" title="Jaaroverzicht (alle taken + status)"><span class="ni-icon">📋</span>Overzicht</button>
     <button class="nav-item" data-view="locatie" title="Live GPS-locatie op het terreinplan"><span class="ni-icon">📍</span>Locatie</button>
+    <button class="nav-item" data-view="contacten" title="Contactenlijst crew &amp; teamleaders"><span class="ni-icon">📞</span>Contacten</button>
     <a class="nav-item nav-link" href="sitekaart.html" target="_blank" title="Interactieve sitekaart"><span class="ni-icon">🗺️</span>Plan</a>
   </nav>
   <div class="content-area">
@@ -547,6 +568,7 @@ td.cc.inactive { cursor: default; }
     <div class="view-page" id="view-notes"></div>
     <div class="view-page" id="view-jaaroverzicht"></div>
     <div class="view-page" id="view-locatie"></div>
+    <div class="view-page" id="view-contacten"></div>
   </div>
 </div>
 
@@ -2416,6 +2438,7 @@ function switchView(view) {
   else if(view==='notes'){ renderNotesView(); }
   else if(view==='jaaroverzicht'){ renderJaaroverzichtView(); }
   else if(view==='locatie'){ renderLocatieView(); }
+  else if(view==='contacten'){ renderContactenView(); }
 }
 
 // Jump from another view back to the crewplanning grid, on a specific slot
@@ -2468,6 +2491,29 @@ function fmtHomeDate(dateStr) {
   return `${WD[dt.getDay()]} ${d}/${m}`;
 }
 
+function dayTaskProgress(dateStr) {
+  let total = 0, done = 0;
+  SCHEDULE.filter(s=>slotBaseDate(s.id)===dateStr).forEach(s=>{
+    getTasksForSlot(s.id).forEach(t=>{
+      const subs = t.subtasks||[];
+      if(subs.length){ subs.forEach(sub=>{ total++; if(getStatus(sub)==='done') done++; }); }
+      else { total++; if(getStatus(t)==='done') done++; }
+    });
+  });
+  return {total, done};
+}
+
+function renderDayProgressBar(dateStr) {
+  const {total, done} = dayTaskProgress(dateStr);
+  if(total===0) return '';
+  const pct = Math.round(done/total*100);
+  const fc = pct===100?'':(pct>=50?' half':' low');
+  return `<div class="day-progress">
+    <div class="day-progress-label"><span>Taken</span><b>${done}/${total} afgerond</b></div>
+    <div class="day-progress-bar"><div class="day-progress-fill${fc}" style="width:${pct}%"></div></div>
+  </div>`;
+}
+
 function renderHomeDayCard(label, dateStr) {
   const slots = SCHEDULE.filter(s=>slotBaseDate(s.id)===dateStr);
   let body;
@@ -2482,6 +2528,7 @@ function renderHomeDayCard(label, dateStr) {
       <button class="btn-sec" onclick="printDayPlanning('${dateStr}')" title="Print/PDF van deze dagplanning">🖨️ Print</button>
     </div>
     ${body}
+    ${renderDayProgressBar(dateStr)}
   </div>`;
 }
 
@@ -3596,6 +3643,102 @@ setTimeout(()=>{
   const todayTh = document.querySelector('th.dh.today');
   if(todayTh) todayTh.scrollIntoView({behavior:'instant',inline:'center',block:'nearest'});
 },50);
+
+// ═══════════════════════════════════════════════════════
+// CONTACTENLIJST
+// ═══════════════════════════════════════════════════════
+const CONTACT_GROUPS = [
+  {
+    title: '🏗️ Sitecrew — Opbouw',
+    roles: [
+      { role: 'Crewchef opbouw', name: '', phone: '' },
+      { role: 'Teamleader hekwerk', name: '', phone: '' },
+      { role: 'Teamleader grasmatten', name: '', phone: '' },
+      { role: 'Teamleader logistiek', name: '', phone: '' },
+      { role: 'Teamleader elektriciteit', name: '', phone: '' },
+    ]
+  },
+  {
+    title: '🎪 Sitecrew — Show',
+    roles: [
+      { role: 'Crewchef show', name: '', phone: '' },
+      { role: 'Teamleader terrein', name: '', phone: '' },
+      { role: 'Teamleader camping', name: '', phone: '' },
+      { role: 'Teamleader gates', name: '', phone: '' },
+    ]
+  },
+  {
+    title: '📦 Sitecrew — Afbouw',
+    roles: [
+      { role: 'Crewchef afbouw', name: '', phone: '' },
+      { role: 'Teamleader demontage', name: '', phone: '' },
+      { role: 'Teamleader opruiming', name: '', phone: '' },
+    ]
+  },
+  {
+    title: '🚛 Drivers & Logistiek',
+    roles: [
+      { role: 'Hoofddriver', name: '', phone: '' },
+      { role: 'Driver 1', name: '', phone: '' },
+      { role: 'Driver 2', name: '', phone: '' },
+      { role: 'Driver 3', name: '', phone: '' },
+    ]
+  },
+  {
+    title: '🏢 Productie & Management',
+    roles: [
+      { role: 'Productiemanager', name: '', phone: '' },
+      { role: 'Sitemanager', name: '', phone: '' },
+      { role: 'Veiligheidscoördinator', name: '', phone: '' },
+      { role: 'EHBO-verantwoordelijke', name: '', phone: '' },
+    ]
+  },
+  {
+    title: '🔧 Externe diensten',
+    roles: [
+      { role: 'Hekwerk leverancier', name: '', phone: '' },
+      { role: 'Grasmattenleverancier', name: '', phone: '' },
+      { role: 'Stroomaggregaat', name: '', phone: '' },
+      { role: 'Kraanoperator', name: '', phone: '' },
+    ]
+  },
+  {
+    title: '🚨 Noodcontacten',
+    roles: [
+      { role: 'Brandweer / 112', name: '', phone: '' },
+      { role: 'Politie', name: '', phone: '' },
+      { role: 'Lokale brandpost', name: '', phone: '' },
+      { role: 'Ziekenwagen planning', name: '', phone: '' },
+      { role: 'Gemeentelijk contactpersoon', name: '', phone: '' },
+    ]
+  }
+];
+
+function renderContactenView() {
+  const el = document.getElementById('view-contacten');
+  let html = `<h2>📞 Contactenlijst</h2>
+  <p class="mat-intro">Overzicht van alle sleutelpersonen per team. Namen en nummers worden later aangevuld.</p>`;
+
+  CONTACT_GROUPS.forEach(group => {
+    html += `<div class="contact-group">
+      <div class="contact-group-title">${group.title}</div>
+      <div class="contact-table">`;
+    group.roles.forEach(r => {
+      const nameHtml = r.name ? r.name : '<span class="contact-empty">—</span>';
+      const phoneHtml = r.phone
+        ? `<a class="contact-phone" href="tel:${r.phone}">${r.phone}</a>`
+        : '<span class="contact-empty">—</span>';
+      html += `<div class="contact-row">
+        <div class="contact-role">${r.role}</div>
+        <div class="contact-name">${nameHtml}</div>
+        <div class="contact-tel">${phoneHtml}</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  el.innerHTML = html;
+}
 
 // Cloud sync (alleen actief als SYNC.binId/apiKey zijn ingevuld)
 if(syncConfigured()){
