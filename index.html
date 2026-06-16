@@ -1481,7 +1481,7 @@ function materialConflictWarningHtml(slotId) {
 // ── Weer (Open-Meteo, geen API-key nodig) ──
 // Locatie van het DreamVille-terrein (De Schorre, Boom) — pas aan indien nodig.
 const WEATHER_LOCATION = { lat: 51.0926, lon: 4.3553, name: 'Boom (De Schorre)' };
-const WEATHER_CACHE_KEY = 'dv26_weather_cache';
+const WEATHER_CACHE_KEY = 'dv26_weather_cache_v2';
 const WEATHER_CACHE_TTL = 3 * 60 * 60 * 1000; // 3 uur
 
 const WEATHER_INFO = {
@@ -2376,6 +2376,11 @@ function switchView(view) {
   document.querySelectorAll('.nav-item:not(.nav-link)').forEach(b=>b.classList.toggle('active', b.dataset.view===view));
   document.querySelectorAll('.main, .view-page').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+view).classList.add('active');
+  // Fase-tabs + bewerken/backup enkel zichtbaar bij planning
+  const planningOnly = view === 'crew';
+  document.getElementById('phaseTabs').style.display = planningOnly ? '' : 'none';
+  document.getElementById('editModeBtn').style.display = planningOnly ? '' : 'none';
+  document.getElementById('exportBtn').style.display = planningOnly ? '' : 'none';
   if(view==='home'){ renderHomeView(); }
   else if(view==='crew'){ renderTable(); }
   else if(view==='tasks'){ renderTasksOverview(); }
@@ -3544,6 +3549,10 @@ applyOverrides();
 initCrewFilter();
 renderTable();
 renderHomeView();
+// Verberg plannings-tabs bij initiële home-weergave
+document.getElementById('phaseTabs').style.display = 'none';
+document.getElementById('editModeBtn').style.display = 'none';
+document.getElementById('exportBtn').style.display = 'none';
 renderOpeningCountdown();
 setSyncStatus(syncStatus);
 
