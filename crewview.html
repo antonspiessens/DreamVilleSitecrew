@@ -278,7 +278,7 @@ header { flex-shrink: 0; background: var(--surface); border-bottom: 1px solid va
   <button class="ptab" id="themeToggleBtn" onclick="toggleTheme()" title="Wissel lichte/donkere modus">🌙</button>
   <button class="ptab" id="jumpTodayBtn" title="Ga naar vandaag">📍 Vandaag</button>
   <span id="openingCountdown" class="countdown"></span>
-  <div class="phase-tabs" id="phaseTabs">
+  <div class="phase-tabs" id="phaseTabs" style="display:none">
     <button class="ptab op" data-phase="opbouw">Opbouw</button>
     <button class="ptab sh" data-phase="show">Show</button>
     <button class="ptab af" data-phase="afbouw">Afbouw</button>
@@ -971,8 +971,29 @@ function togglePlanningPast() {
   renderPhase();
 }
 
+function allUniqueDates() {
+  const seen = new Set(); const dates = [];
+  SCHEDULE.forEach(s=>{
+    const d = slotBaseDate(s.id);
+    if(!seen.has(d)){ seen.add(d); dates.push(d); }
+  });
+  return dates.sort();
+}
+
+function totalProgress() {
+  let total=0, done=0;
+  SCHEDULE.forEach(s=>{
+    getTasksForSlot(s.id).forEach(t=>{
+      const subs = t.subtasks||[];
+      if(subs.length){ subs.forEach(sub=>{ total++; if(getStatus(sub)==='done') done++; }); }
+      else { total++; if(getStatus(t)==='done') done++; }
+    });
+  });
+  return {done, total};
+}
+
 function renderPhase() {
-  let dates = uniqueDatesForPhase(currentPhase);
+  let dates = allUniqueDates();
   if(hideEmptyDays) dates = dates.filter(d=>dayHasContent(d));
 
   const cutoff = mondayOfCurrentWeek();
@@ -981,22 +1002,21 @@ function renderPhase() {
 
   let html = renderWorkingHoursCard();
   html += renderWeatherWidget();
-  const prog = phaseProgress(currentPhase);
-  html += `<h2>${PHASE_TITLES[currentPhase]}${prog.total?` <span class="progress-pill">✓ ${prog.done}/${prog.total} afgerond</span>`:''}</h2>`;
+  const prog = totalProgress();
+  html += `<h2>Planning${prog.total?` <span class="progress-pill">✓ ${prog.done}/${prog.total} afgerond</span>`:''}</h2>`;
 
   if(upcomingDates.length===0 && pastDates.length===0){
-    html += '<div class="empty-msg">Geen planningsdata voor deze fase.</div>';
+    html += '<div class="empty-msg">Geen planningsdata beschikbaar.</div>';
   } else {
-    // Komende dagen (vanaf maandag huidige week)
     if(upcomingDates.length>0){
       let cardsHtml = '';
       upcomingDates.forEach(d=>{ cardsHtml += renderDayCard(d); });
       if(cardsHtml) html += `<div class="home-grid">${cardsHtml}</div>`;
+      else html += '<div class="empty-msg">Geen dagen gevonden voor deze selectie.</div>';
     } else {
-      html += '<div class="empty-msg">Geen komende dagen in deze fase.</div>';
+      html += '<div class="empty-msg">Geen komende dagen.</div>';
     }
 
-    // Verleden (voor maandag huidige week)
     if(pastDates.length>0){
       html += `<div class="past-toggle" onclick="togglePlanningPast()">🕘 Verleden <span class="past-arrow">${planningShowPast?'▾':'▸'}</span></div>`;
       if(planningShowPast){
@@ -1010,7 +1030,6 @@ function renderPhase() {
   document.getElementById('content').innerHTML = html;
   const weatherDone = updateWeatherWidget();
 
-  // Scroll naar "vandaag" bij opbouw/laden, met behoud van werktijden/weer bovenaan
   setTimeout(()=>{ scrollToToday('instant'); }, 30);
   lastWeatherPromise = weatherDone;
   weatherDone.then(()=>{ if(lastWeatherPromise===weatherDone) scrollToToday('instant'); });
@@ -1171,7 +1190,7 @@ function renderTasksOverviewReadOnly() {
 // ── Weer (Open-Meteo, geen API-key nodig) ──
 // Locatie van het DreamVille-terrein (De Schorre, Boom) — pas aan indien nodig.
 const WEATHER_LOCATION = { lat: 51.0926, lon: 4.3553, name: 'Boom (De Schorre)' };
-const WEATHER_CACHE_KEY = 'dv26_weather_cache';
+const WEATHER_CACHE_KEY = 'dv26_weather_cache_v2';
 const WEATHER_CACHE_TTL = 3 * 60 * 60 * 1000; // 3 uur
 
 const WEATHER_INFO = {
@@ -1440,15 +1459,8 @@ document.getElementById('hideEmptyBtn')?.addEventListener('click', (e)=>{
 });
 
 document.getElementById('jumpTodayBtn')?.addEventListener('click', ()=>{
-  const todaySlot = SCHEDULE.find(s=>slotBaseDate(s.id)===todayStr);
-  if(!todaySlot){
-    alert('Vandaag valt buiten de geplande periode.');
-    return;
-  }
-  currentPhase = todaySlot.phase;
   currentView = 'planning';
   clearViewTabs();
-  document.querySelector(`.ptab[data-phase="${currentPhase}"]`)?.classList.add('active');
   setActiveNav('planning');
   render();
   setTimeout(()=>{ scrollToToday('smooth'); }, 30);
