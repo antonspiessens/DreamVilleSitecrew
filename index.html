@@ -1504,7 +1504,7 @@ function saveWeatherCache(data) {
 async function fetchWeather() {
   const cached = loadWeatherCache();
   if(cached && cached.data && (Date.now()-cached.fetchedAt) < WEATHER_CACHE_TTL) return cached.data;
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LOCATION.lat}&longitude=${WEATHER_LOCATION.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBrussels&forecast_days=3`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LOCATION.lat}&longitude=${WEATHER_LOCATION.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBrussels&forecast_days=7`;
   const res = await fetch(url);
   if(!res.ok) throw new Error('weather fetch failed');
   const data = await res.json();
@@ -1534,15 +1534,17 @@ async function updateWeatherWidget(idPrefix) {
   const el = document.getElementById(idPrefix||'weatherWidget');
   if(!el) return;
   const now = new Date();
-  const tomorrow = new Date(now.getTime()+24*60*60*1000);
-  const dayAfter = new Date(now.getTime()+2*24*60*60*1000);
+  const DAY_LABELS = ['Vandaag','Morgen','Overmorgen','',''];
+  const WD_LABELS = ['zo','ma','di','wo','do','vr','za'];
   try {
     const data = await fetchWeather();
-    el.innerHTML = `<div class="weather-loc">📍 Weer ${esc(WEATHER_LOCATION.name)}</div><div class="weather-row">`
-      + renderWeatherCard('Vandaag', toLocalISO(now), data)
-      + renderWeatherCard('Morgen', toLocalISO(tomorrow), data)
-      + renderWeatherCard('Overmorgen', toLocalISO(dayAfter), data)
-      + `</div>`;
+    let cards = '';
+    for(let i=0;i<5;i++){
+      const dt = new Date(now.getTime()+i*24*60*60*1000);
+      const label = DAY_LABELS[i] || WD_LABELS[dt.getDay()];
+      cards += renderWeatherCard(label, toLocalISO(dt), data);
+    }
+    el.innerHTML = `<div class="weather-loc">📍 Weer ${esc(WEATHER_LOCATION.name)}</div><div class="weather-row">${cards}</div>`;
   } catch(e) {
     el.innerHTML = '<div class="weather-na">⚠️ Weer kon niet geladen worden (geen verbinding?).</div>';
   }
@@ -2398,18 +2400,18 @@ function goToSlot(slotId) {
 // ── Home dashboard (vandaag, morgen & overmorgen) ──
 function renderHomeView() {
   const now = new Date();
-  const tomorrow = new Date(now.getTime() + 24*60*60*1000);
-  const dayAfter = new Date(now.getTime() + 2*24*60*60*1000);
-  const todayStr = now.toISOString().slice(0,10);
-  const tomorrowStr = tomorrow.toISOString().slice(0,10);
-  const dayAfterStr = dayAfter.toISOString().slice(0,10);
+  const DAY_LABELS = ['Vandaag','Morgen','Overmorgen','',''];
+  const WD_LABELS = ['zo','ma','di','wo','do','vr','za'];
 
   let html = renderWorkingHoursCard();
   html += renderWeatherWidget();
-  html += '<h2>Vandaag, morgen &amp; overmorgen</h2><div class="home-grid">';
-  html += renderHomeDayCard('Vandaag', todayStr);
-  html += renderHomeDayCard('Morgen', tomorrowStr);
-  html += renderHomeDayCard('Overmorgen', dayAfterStr);
+  html += '<h2>Komende 5 dagen</h2><div class="home-grid">';
+  for(let i=0;i<5;i++){
+    const dt = new Date(now.getTime()+i*24*60*60*1000);
+    const dateStr = toLocalISO(dt);
+    const label = DAY_LABELS[i] || WD_LABELS[dt.getDay()];
+    html += renderHomeDayCard(label, dateStr);
+  }
   html += '</div>';
   document.getElementById('view-home').innerHTML = html;
   updateWeatherWidget();

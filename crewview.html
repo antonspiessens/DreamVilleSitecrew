@@ -185,6 +185,11 @@ header { flex-shrink: 0; background: var(--surface); border-bottom: 1px solid va
 .sec-title h3 { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; }
 .task-overview-day { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
 .task-overview-block { margin-bottom: 14px; }
+/* ── Verleden-toggle (planning) ── */
+.past-toggle { margin-top: 10px; margin-bottom: 4px; font-size: 11px; font-weight: 700; color: var(--muted); cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 5px; padding: 5px 0; }
+.past-toggle:hover { color: var(--text); }
+.past-arrow { font-size: 9px; }
+.past-panel { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
 /* ── Weergave-toggle + takenkalender ── */
 .tasks-view-toggle { display: flex; gap: 4px; margin-bottom: 14px; }
 .tasks-view-toggle button { padding: 5px 13px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); transition: all 0.15s; letter-spacing: 0.03em; }
@@ -923,6 +928,7 @@ function printDayPlanning(dateStr) {
 let currentPhase = 'opbouw';
 let currentView = 'planning'; // 'planning' | 'taken'
 let tasksViewMode = 'lijst'; // 'lijst' | 'kalender'
+let planningShowPast = false; // toon "Verleden" in planning
 let lastWeatherPromise = null;
 
 function uniqueDatesForPhase(phase) {
@@ -950,31 +956,62 @@ function renderWorkingHoursCard() {
   </div>`;
 }
 
+// Geeft de datum (YYYY-MM-DD) van de maandag van de huidige week terug.
+function mondayOfCurrentWeek() {
+  const now = new Date();
+  const day = now.getDay(); // 0=zo, 1=ma, ..., 6=za
+  const diff = (day === 0) ? -6 : 1 - day; // stap terug naar maandag
+  const mon = new Date(now);
+  mon.setDate(now.getDate() + diff);
+  return mon.toISOString().slice(0,10);
+}
+
+function togglePlanningPast() {
+  planningShowPast = !planningShowPast;
+  renderPhase();
+}
+
 function renderPhase() {
   let dates = uniqueDatesForPhase(currentPhase);
   if(hideEmptyDays) dates = dates.filter(d=>dayHasContent(d));
+
+  const cutoff = mondayOfCurrentWeek();
+  const pastDates = dates.filter(d=>d < cutoff);
+  const upcomingDates = dates.filter(d=>d >= cutoff);
+
   let html = renderWorkingHoursCard();
   html += renderWeatherWidget();
   const prog = phaseProgress(currentPhase);
   html += `<h2>${PHASE_TITLES[currentPhase]}${prog.total?` <span class="progress-pill">✓ ${prog.done}/${prog.total} afgerond</span>`:''}</h2>`;
-  if(dates.length===0){
+
+  if(upcomingDates.length===0 && pastDates.length===0){
     html += '<div class="empty-msg">Geen planningsdata voor deze fase.</div>';
   } else {
-    let cardsHtml = '';
-    dates.forEach(d=>{ cardsHtml += renderDayCard(d); });
-    if(!cardsHtml){
-      html += '<div class="empty-msg">Geen dagen gevonden voor deze selectie.</div>';
+    // Komende dagen (vanaf maandag huidige week)
+    if(upcomingDates.length>0){
+      let cardsHtml = '';
+      upcomingDates.forEach(d=>{ cardsHtml += renderDayCard(d); });
+      if(cardsHtml) html += `<div class="home-grid">${cardsHtml}</div>`;
     } else {
-      html += `<div class="home-grid">${cardsHtml}</div>`;
+      html += '<div class="empty-msg">Geen komende dagen in deze fase.</div>';
+    }
+
+    // Verleden (voor maandag huidige week)
+    if(pastDates.length>0){
+      html += `<div class="past-toggle" onclick="togglePlanningPast()">🕘 Verleden <span class="past-arrow">${planningShowPast?'▾':'▸'}</span></div>`;
+      if(planningShowPast){
+        let pastCardsHtml = '';
+        pastDates.forEach(d=>{ pastCardsHtml += renderDayCard(d); });
+        if(pastCardsHtml) html += `<div class="past-panel"><div class="home-grid">${pastCardsHtml}</div></div>`;
+      }
     }
   }
+
   document.getElementById('content').innerHTML = html;
   const weatherDone = updateWeatherWidget();
 
   // Scroll naar "vandaag" bij opbouw/laden, met behoud van werktijden/weer bovenaan
   setTimeout(()=>{ scrollToToday('instant'); }, 30);
-  // Het weerwidget laadt async en kan de layout daarna nog verschuiven —
-  // herhaal de scroll zodra het weer geladen is zodat "vandaag" in beeld blijft.
   lastWeatherPromise = weatherDone;
   weatherDone.then(()=>{ if(lastWeatherPromise===weatherDone) scrollToToday('instant'); });
 }
@@ -1157,7 +1194,7 @@ function saveWeatherCache(data) {
 async function fetchWeather() {
   const cached = loadWeatherCache();
   if(cached && cached.data && (Date.now()-cached.fetchedAt) < WEATHER_CACHE_TTL) return cached.data;
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LOCATION.lat}&longitude=${WEATHER_LOCATION.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBrussels&forecast_days=3`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LOCATION.lat}&longitude=${WEATHER_LOCATION.lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FBrussels&forecast_days=7`;
   const res = await fetch(url);
   if(!res.ok) throw new Error('weather fetch failed');
   const data = await res.json();
@@ -1187,15 +1224,17 @@ async function updateWeatherWidget(idPrefix) {
   const el = document.getElementById(idPrefix||'weatherWidget');
   if(!el) return;
   const now = new Date();
-  const tomorrow = new Date(now.getTime()+24*60*60*1000);
-  const dayAfter = new Date(now.getTime()+2*24*60*60*1000);
+  const DAY_LABELS = ['Vandaag','Morgen','Overmorgen','',''];
+  const WD_LABELS = ['zo','ma','di','wo','do','vr','za'];
   try {
     const data = await fetchWeather();
-    el.innerHTML = `<div class="weather-loc">📍 Weer ${esc(WEATHER_LOCATION.name)}</div><div class="weather-row">`
-      + renderWeatherCard('Vandaag', toLocalISO(now), data)
-      + renderWeatherCard('Morgen', toLocalISO(tomorrow), data)
-      + renderWeatherCard('Overmorgen', toLocalISO(dayAfter), data)
-      + `</div>`;
+    let cards = '';
+    for(let i=0;i<5;i++){
+      const dt = new Date(now.getTime()+i*24*60*60*1000);
+      const label = DAY_LABELS[i] || WD_LABELS[dt.getDay()];
+      cards += renderWeatherCard(label, toLocalISO(dt), data);
+    }
+    el.innerHTML = `<div class="weather-loc">📍 Weer ${esc(WEATHER_LOCATION.name)}</div><div class="weather-row">${cards}</div>`;
   } catch(e) {
     el.innerHTML = '<div class="weather-na">⚠️ Weer kon niet geladen worden (geen verbinding?).</div>';
   }
