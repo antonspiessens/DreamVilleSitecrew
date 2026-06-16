@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DreamVille 2026 — Sitekaart</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* TOP BAR */
+  #topbar {
+    display: flex; align-items: center; gap: 12px;
+    background: #16213e; padding: 8px 16px; border-bottom: 1px solid #0f3460;
+    flex-shrink: 0; flex-wrap: wrap;
+  }
+  #topbar h1 { font-size: 15px; font-weight: 700; color: #e94560; white-space: nowrap; margin-right: 4px; }
+  .tool-group { display: flex; gap: 4px; }
+  .tool-btn {
+    background: #0f3460; border: 1px solid #1a4a7a; color: #cdd; padding: 6px 10px;
+    border-radius: 6px; cursor: pointer; font-size: 12px; white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .tool-btn:hover { background: #1a5a9a; }
+  .tool-btn.active { background: #e94560; border-color: #e94560; color: #fff; }
+  .sep { width: 1px; background: #0f3460; margin: 0 4px; align-self: stretch; }
+  #upload-label {
+    background: #0f3460; border: 1px dashed #4a7ab5; color: #8ab; padding: 6px 12px;
+    border-radius: 6px; cursor: pointer; font-size: 12px; white-space: nowrap;
+  }
+  #upload-label:hover { background: #1a4a7a; }
+  #file-input { display: none; }
+  #pdf-page-controls { display:none; align-items:center; gap:6px; }
+  #pdf-page-controls span { font-size:12px; color:#8ab; }
+  #status-msg { font-size: 11px; color: #8ab; flex: 1; min-width: 0; }
+
+  /* MAIN LAYOUT */
+  #main { display: flex; flex: 1; overflow: hidden; }
+
+  /* CANVAS AREA */
+  #canvas-wrap {
+    flex: 1; position: relative; overflow: hidden; background: #111;
+    cursor: crosshair;
+  }
+  #bg-img {
+    position: absolute; top: 0; left: 0;
+    transform-origin: top left;
+    user-select: none; pointer-events: none;
+  }
+  #draw-canvas {
+    position: absolute; top: 0; left: 0;
+    transform-origin: top left;
+  }
+
+  /* ZOOM controls */
+  #zoom-controls {
+    position: absolute; bottom: 12px; left: 12px;
+    display: flex; gap: 4px;
+  }
+  .zoom-btn {
+    background: rgba(22,33,62,0.9); border: 1px solid #0f3460; color: #cdd;
+    width: 30px; height: 30px; border-radius: 6px; cursor: pointer; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .zoom-btn:hover { background: rgba(30,50,100,0.95); }
+  #zoom-label { background: rgba(22,33,62,0.9); border: 1px solid #0f3460; color: #8ab;
+    padding: 0 8px; border-radius: 6px; font-size: 11px; display: flex; align-items: center; }
+
+  /* SIDEBAR */
+  #sidebar {
+    width: 260px; background: #16213e; border-left: 1px solid #0f3460;
+    display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
+  }
+  #sidebar-tabs { display: flex; border-bottom: 1px solid #0f3460; }
+  .stab {
+    flex: 1; padding: 8px; text-align: center; cursor: pointer;
+    font-size: 12px; color: #8ab; border-bottom: 2px solid transparent;
+  }
+  .stab.active { color: #e94560; border-bottom-color: #e94560; }
+  #sidebar-content { flex: 1; overflow-y: auto; padding: 12px; }
+
+  /* PROPERTIES PANEL */
+  .prop-label { font-size: 11px; color: #8ab; margin-bottom: 4px; margin-top: 10px; }
+  .prop-label:first-child { margin-top: 0; }
+  input[type=text], textarea, select {
+    width: 100%; background: #0f3460; border: 1px solid #1a4a7a; color: #e0e0e0;
+    padding: 6px 8px; border-radius: 6px; font-size: 12px; font-family: inherit;
+  }
+  textarea { resize: vertical; min-height: 60px; }
+  input[type=text]:focus, textarea:focus, select:focus { outline: none; border-color: #e94560; }
+
+  .status-row { display: flex; gap: 6px; margin-top: 4px; }
+  .status-pill {
+    flex: 1; padding: 5px 4px; border-radius: 6px; border: 1px solid transparent;
+    cursor: pointer; font-size: 11px; text-align: center; transition: all 0.15s;
+  }
+  .status-pill.niet  { background: #2a1a1a; border-color: #c0392b; color: #e74c3c; }
+  .status-pill.bezig { background: #2a1e0a; border-color: #d68910; color: #f39c12; }
+  .status-pill.klaar { background: #0a2a10; border-color: #27ae60; color: #2ecc71; }
+  .status-pill.active-status { box-shadow: 0 0 0 2px #fff4; }
+
+  .btn-danger { background: #c0392b; border: none; color: #fff; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-top: 12px; width: 100%; }
+  .btn-danger:hover { background: #e74c3c; }
+  .btn-save { background: #27ae60; border: none; color: #fff; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-top: 6px; width: 100%; }
+  .btn-save:hover { background: #2ecc71; }
+
+  /* LIST VIEW */
+  .list-item {
+    background: #0f3460; border: 1px solid #1a4a7a; border-radius: 8px;
+    padding: 8px 10px; margin-bottom: 8px; cursor: pointer; transition: background 0.15s;
+  }
+  .list-item:hover { background: #1a4a7a; }
+  .list-item.selected { border-color: #e94560; }
+  .list-item-name { font-size: 13px; font-weight: 600; }
+  .list-item-meta { font-size: 11px; color: #8ab; margin-top: 2px; }
+  .dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-right: 4px; vertical-align: middle;
+  }
+  .dot-niet  { background: #e74c3c; }
+  .dot-bezig { background: #f39c12; }
+  .dot-klaar { background: #2ecc71; }
+
+  /* LEGEND */
+  #legend {
+    position: absolute; top: 12px; right: 12px;
+    background: rgba(22,33,62,0.92); border: 1px solid #0f3460;
+    border-radius: 8px; padding: 10px 14px; font-size: 11px; color: #8ab;
+  }
+  #legend h3 { font-size: 11px; color: #cdd; margin-bottom: 6px; }
+  .leg-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .leg-zone { width: 16px; height: 12px; border-radius: 3px; border: 2px solid; }
+  .leg-line { width: 20px; height: 3px; border-radius: 2px; }
+
+  /* NO SELECTION */
+  #no-selection { color: #4a6a8a; font-size: 12px; text-align: center; padding: 30px 10px; }
+
+  /* Cursor modes */
+  #canvas-wrap.tool-select { cursor: default; }
+  #canvas-wrap.tool-pan    { cursor: grab; }
+  #canvas-wrap.tool-pan.panning { cursor: grabbing; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <h1>🏕 DreamVille 2026</h1>
+  <label id="upload-label" for="file-input">📁 Kaart uploaden</label>
+  <input type="file" id="file-input" accept="image/*,application/pdf">
+  <div id="pdf-page-controls">
+    <button class="tool-btn" onclick="changePdfPage(-1)">◀</button>
+    <span id="pdf-page-label">Pagina 1</span>
+    <button class="tool-btn" onclick="changePdfPage(1)">▶</button>
+  </div>
+  <div class="sep"></div>
+  <div class="tool-group">
+    <button class="tool-btn active" id="btn-select" onclick="setTool('select')" title="Selecteren (S)">↖ Select</button>
+    <button class="tool-btn" id="btn-pan" onclick="setTool('pan')" title="Pannen (P)">✋ Pan</button>
+  </div>
+  <div class="sep"></div>
+  <div class="tool-group">
+    <button class="tool-btn" id="btn-zone" onclick="setTool('zone')" title="Zone tekenen (Z)">⬡ Zone</button>
+    <button class="tool-btn" id="btn-line" onclick="setTool('line')" title="Lijn tekenen (L)">╱ Lijn</button>
+  </div>
+  <div class="sep"></div>
+  <button class="tool-btn" id="btn-delete" onclick="deleteSelected()" title="Verwijder selectie (Del)">🗑</button>
+  <div class="sep"></div>
+  <button class="tool-btn" onclick="saveData()" title="Opslaan">💾 Opslaan</button>
+  <button class="tool-btn" onclick="exportPNG()" title="Exporteer als afbeelding">📷 Export</button>
+  <span id="status-msg">Laad een kaartafbeelding om te beginnen</span>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <!-- CANVAS -->
+  <div id="canvas-wrap">
+    <img id="bg-img" src="" alt="">
+    <canvas id="draw-canvas"></canvas>
+    <div id="legend">
+      <h3>Legenda</h3>
+      <div class="leg-row"><div class="leg-zone" style="border-color:#e74c3c;background:rgba(231,76,60,0.15)"></div> Zone — Niet gestart</div>
+      <div class="leg-row"><div class="leg-zone" style="border-color:#f39c12;background:rgba(243,156,18,0.15)"></div> Zone — Bezig</div>
+      <div class="leg-row"><div class="leg-zone" style="border-color:#2ecc71;background:rgba(46,204,113,0.15)"></div> Zone — Klaar</div>
+      <div class="leg-row"><div class="leg-line" style="background:#e74c3c"></div> Lijn — Niet gestart</div>
+      <div class="leg-row"><div class="leg-line" style="background:#f39c12"></div> Lijn — Bezig</div>
+      <div class="leg-row"><div class="leg-line" style="background:#2ecc71"></div> Lijn — Klaar</div>
+    </div>
+    <div id="zoom-controls">
+      <button class="zoom-btn" onclick="changeZoom(1.2)">+</button>
+      <div id="zoom-label">100%</div>
+      <button class="zoom-btn" onclick="changeZoom(1/1.2)">−</button>
+      <button class="zoom-btn" onclick="resetZoom()" title="Reset weergave">⌂</button>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div id="sidebar-tabs">
+      <div class="stab active" onclick="showTab('props')" id="tab-props">Eigenschappen</div>
+      <div class="stab" onclick="showTab('list')" id="tab-list">Overzicht</div>
+    </div>
+    <div id="sidebar-content">
+      <div id="panel-props">
+        <div id="no-selection">Selecteer of teken een zone of lijn om eigenschappen te bewerken.</div>
+        <div id="prop-fields" style="display:none">
+          <div class="prop-label">Naam</div>
+          <input type="text" id="prop-name" placeholder="bv. Zone A / Hekwerk Noord" oninput="updateSelected()">
+          <div class="prop-label">Type</div>
+          <div id="prop-type" style="font-size:12px;color:#8ab;padding:4px 0"></div>
+          <div class="prop-label">Status</div>
+          <div class="status-row">
+            <div class="status-pill niet"  id="s-niet"  onclick="setStatus('niet_gestart')">Niet gestart</div>
+            <div class="status-pill bezig" id="s-bezig" onclick="setStatus('bezig')">Bezig</div>
+            <div class="status-pill klaar" id="s-klaar" onclick="setStatus('klaar')">Klaar</div>
+          </div>
+          <div class="prop-label">Taken / notities</div>
+          <textarea id="prop-tasks" placeholder="Beschrijf de taken voor deze zone of lijn…" oninput="updateSelected()"></textarea>
+          <div class="prop-label">Verantwoordelijke</div>
+          <input type="text" id="prop-owner" placeholder="Naam teamlead of crew" oninput="updateSelected()">
+          <button class="btn-danger" onclick="deleteSelected()">🗑 Verwijder</button>
+        </div>
+      </div>
+      <div id="panel-list" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ──────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('draw-canvas');
+const ctx    = canvas.getContext('2d');
+const bgImg  = document.getElementById('bg-img');
+const wrap   = document.getElementById('canvas-wrap');
+
+let tool = 'select';        // select | pan | zone | line
+let zoom = 1;
+let panX = 0, panY = 0;
+let isPanning = false, panStart = null;
+
+let zones = [];   // {id, points[[x,y]], name, tasks, owner, status}
+let lines = [];   // {id, points[[x,y]], name, tasks, owner, status}
+
+let selectedId   = null;
+let selectedType = null; // 'zone' | 'line'
+
+// Drawing in progress
+let drawingPoints = [];   // current polygon/line being drawn
+let mousePos = null;
+
+let imgW = 0, imgH = 0;
+let imageLoaded = false;
+let activeTab = 'props';
+
+const STATUS_COLOR = {
+  niet_gestart: '#e74c3c',
+  bezig:        '#f39c12',
+  klaar:        '#2ecc71',
+};
+
+// ─── TOOL SELECTION ─────────────────────────────────────────────────────────
+function setTool(t) {
+  // If switching away from active drawing, cancel it
+  drawingPoints = [];
+  tool = t;
+  ['select','pan','zone','line'].forEach(k => {
+    document.getElementById('btn-'+k)?.classList.toggle('active', k===t);
+  });
+  wrap.className = 'tool-'+t;
+  render();
+  setStatus_msg();
+}
+
+function setStatus_msg() {
+  const msgs = {
+    select: 'Klik op een zone of lijn om te selecteren',
+    pan:    'Klik en sleep om de kaart te verschuiven',
+    zone:   'Klik om hoekpunten te plaatsen — dubbelklik om zone te sluiten',
+    line:   'Klik om punten te plaatsen — dubbelklik om lijn te beëindigen',
+  };
+  document.getElementById('status-msg').textContent = msgs[tool] || '';
+}
+
+// ─── IMAGE / PDF UPLOAD ──────────────────────────────────────────────────────
+let pdfDoc      = null;
+let pdfPageNum  = 1;
+let pdfTotalPages = 0;
+
+document.getElementById('file-input').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  if (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')) {
+    loadPDF(f);
+  } else {
+    loadImage(f);
+  }
+});
+
+function loadImage(f) {
+  const url = URL.createObjectURL(f);
+  bgImg.onload = () => {
+    imgW = bgImg.naturalWidth;
+    imgH = bgImg.naturalHeight;
+    imageLoaded = true;
+    pdfDoc = null;
+    document.getElementById('pdf-page-controls').style.display = 'none';
+    resetZoom();
+    setStatus_msg();
+    document.getElementById('status-msg').textContent = `Kaart geladen: ${f.name} (${imgW}×${imgH}px)`;
+  };
+  bgImg.src = url;
+}
+
+function loadPDF(f) {
+  if (typeof pdfjsLib === 'undefined') {
+    document.getElementById('status-msg').textContent = 'PDF.js laadt nog, probeer opnieuw…';
+    return;
+  }
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    document.getElementById('status-msg').textContent = 'PDF wordt verwerkt…';
+    try {
+      pdfDoc = await pdfjsLib.getDocument({ data: ev.target.result }).promise;
+      pdfTotalPages = pdfDoc.numPages;
+      pdfPageNum = 1;
+      await renderPDFPage(pdfPageNum);
+      const ctrl = document.getElementById('pdf-page-controls');
+      ctrl.style.display = pdfTotalPages > 1 ? 'flex' : 'none';
+      document.getElementById('status-msg').textContent =
+        `PDF geladen: ${f.name} (${pdfTotalPages} pagina${pdfTotalPages>1?'s':''})`;
+    } catch(err) {
+      document.getElementById('status-msg').textContent = 'Fout bij laden PDF: ' + err.message;
+    }
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+async function renderPDFPage(pageNum) {
+  const page   = await pdfDoc.getPage(pageNum);
+  const scale  = 2; // render at 2× for sharpness
+  const vp     = page.getViewport({ scale });
+  const offscreen = document.createElement('canvas');
+  offscreen.width  = vp.width;
+  offscreen.height = vp.height;
+  const oc = offscreen.getContext('2d');
+  await page.render({ canvasContext: oc, viewport: vp }).promise;
+  bgImg.onload = () => {
+    imgW = offscreen.width;
+    imgH = offscreen.height;
+    imageLoaded = true;
+    resetZoom();
+    render();
+    document.getElementById('pdf-page-label').textContent =
+      `Pagina ${pageNum} / ${pdfTotalPages}`;
+  };
+  bgImg.src = offscreen.toDataURL();
+}
+
+async function changePdfPage(delta) {
+  if (!pdfDoc) return;
+  const next = pdfPageNum + delta;
+  if (next < 1 || next > pdfTotalPages) return;
+  pdfPageNum = next;
+  await renderPDFPage(pdfPageNum);
+}
+
+// ─── ZOOM & PAN ──────────────────────────────────────────────────────────────
+function applyTransform() {
+  const t = `translate(${panX}px,${panY}px) scale(${zoom})`;
+  bgImg.style.transform    = t;
+  canvas.style.transform   = t;
+}
+
+function changeZoom(factor) {
+  const cx = wrap.clientWidth/2, cy = wrap.clientHeight/2;
+  const wx = (cx - panX) / zoom;
+  const wy = (cy - panY) / zoom;
+  zoom = Math.min(10, Math.max(0.1, zoom * factor));
+  panX = cx - wx * zoom;
+  panY = cy - wy * zoom;
+  applyTransform();
+  document.getElementById('zoom-label').textContent = Math.round(zoom*100)+'%';
+  render();
+}
+
+function resetZoom() {
+  if (!imageLoaded) { zoom=1; panX=0; panY=0; applyTransform(); return; }
+  const ww = wrap.clientWidth, wh = wrap.clientHeight;
+  zoom = Math.min(ww/imgW, wh/imgH) * 0.9;
+  panX = (ww - imgW*zoom)/2;
+  panY = (wh - imgH*zoom)/2;
+  applyTransform();
+  document.getElementById('zoom-label').textContent = Math.round(zoom*100)+'%';
+  render();
+}
+
+// Mouse wheel zoom
+wrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = wrap.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const wx = (mx - panX) / zoom;
+  const wy = (my - panY) / zoom;
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  zoom = Math.min(10, Math.max(0.1, zoom * factor));
+  panX = mx - wx*zoom;
+  panY = my - wy*zoom;
+  applyTransform();
+  document.getElementById('zoom-label').textContent = Math.round(zoom*100)+'%';
+  render();
+}, { passive: false });
+
+// ─── COORDINATE HELPERS ──────────────────────────────────────────────────────
+function canvasToWorld(cx, cy) {
+  return [(cx - panX) / zoom, (cy - panY) / zoom];
+}
+
+function wrapXY(e) {
+  const rect = wrap.getBoundingClientRect();
+  return [e.clientX - rect.left, e.clientY - rect.top];
+}
+
+// ─── CANVAS SIZING ───────────────────────────────────────────────────────────
+function resizeCanvas() {
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  render();
+}
+new ResizeObserver(resizeCanvas).observe(wrap);
+
+// ─── HIT TESTING ─────────────────────────────────────────────────────────────
+function pointInPolygon(px, py, pts) {
+  let inside = false;
+  for (let i=0, j=pts.length-1; i<pts.length; j=i++) {
+    const xi=pts[i][0], yi=pts[i][1], xj=pts[j][0], yj=pts[j][1];
+    if (((yi>py)!==(yj>py)) && (px < (xj-xi)*(py-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+
+function distToSegment(px, py, ax, ay, bx, by) {
+  const dx=bx-ax, dy=by-ay;
+  const l2 = dx*dx+dy*dy;
+  if (l2===0) return Math.hypot(px-ax, py-ay);
+  const t = Math.max(0, Math.min(1, ((px-ax)*dx+(py-ay)*dy)/l2));
+  return Math.hypot(px-(ax+t*dx), py-(ay+t*dy));
+}
+
+function hitTestPoint(wx, wy) {
+  // Lines first (thinner, easier to miss)
+  const thresh = 8 / zoom;
+  for (let i=lines.length-1; i>=0; i--) {
+    const pts = lines[i].points;
+    for (let j=0; j<pts.length-1; j++) {
+      if (distToSegment(wx,wy,pts[j][0],pts[j][1],pts[j+1][0],pts[j+1][1]) < thresh)
+        return { id: lines[i].id, type: 'line' };
+    }
+  }
+  // Zones
+  for (let i=zones.length-1; i>=0; i--) {
+    if (zones[i].points.length >= 3 && pointInPolygon(wx, wy, zones[i].points))
+      return { id: zones[i].id, type: 'zone' };
+  }
+  return null;
+}
+
+// ─── POINTER EVENTS ──────────────────────────────────────────────────────────
+let lastClickTime = 0;
+let lastClickPos  = [0,0];
+
+wrap.addEventListener('mousedown', e => {
+  const [cx,cy] = wrapXY(e);
+  const [wx,wy] = canvasToWorld(cx,cy);
+
+  if (tool === 'pan') {
+    isPanning = true;
+    panStart = [e.clientX - panX, e.clientY - panY];
+    wrap.classList.add('panning');
+    return;
+  }
+
+  if (tool === 'select') {
+    const hit = hitTestPoint(wx, wy);
+    if (hit) { selectItem(hit.id, hit.type); }
+    else      { clearSelection(); }
+    render();
+    return;
+  }
+
+  // Drawing tools
+  const now = Date.now();
+  const dx = wx - lastClickPos[0], dy = wy - lastClickPos[1];
+  const isDouble = (now - lastClickTime < 350) && Math.hypot(dx,dy) < 15/zoom;
+  lastClickTime = now;
+  lastClickPos  = [wx, wy];
+
+  if (isDouble && drawingPoints.length >= 2) {
+    // Finish drawing
+    if (tool === 'zone' && drawingPoints.length >= 3) {
+      drawingPoints.pop(); // remove duplicate last click
+      finishZone();
+    } else if (tool === 'line' && drawingPoints.length >= 2) {
+      drawingPoints.pop();
+      finishLine();
+    }
+    return;
+  }
+  drawingPoints.push([wx, wy]);
+  render();
+});
+
+wrap.addEventListener('mousemove', e => {
+  const [cx,cy] = wrapXY(e);
+  const [wx,wy] = canvasToWorld(cx,cy);
+  mousePos = [wx,wy];
+
+  if (isPanning) {
+    panX = e.clientX - panStart[0];
+    panY = e.clientY - panStart[1];
+    applyTransform();
+    render();
+    return;
+  }
+  render();
+});
+
+wrap.addEventListener('mouseup', e => {
+  if (isPanning) {
+    isPanning = false;
+    wrap.classList.remove('panning');
+  }
+});
+
+wrap.addEventListener('mouseleave', () => { mousePos = null; render(); });
+
+// Keyboard shortcuts
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const k = e.key.toLowerCase();
+  if (k==='s') setTool('select');
+  if (k==='p') setTool('pan');
+  if (k==='z') setTool('zone');
+  if (k==='l') setTool('line');
+  if (k==='delete' || k==='backspace') deleteSelected();
+  if (k==='escape') { drawingPoints=[]; render(); }
+});
+
+// ─── FINISH SHAPES ──────────────────────────────────────────────────────────
+let nextId = 1;
+function uid() { return 'id_'+(nextId++); }
+
+function finishZone() {
+  const z = { id:uid(), points:[...drawingPoints], name:'Zone '+(zones.length+1),
+               tasks:'', owner:'', status:'niet_gestart' };
+  zones.push(z);
+  drawingPoints = [];
+  selectItem(z.id, 'zone');
+  render();
+  saveData();
+}
+
+function finishLine() {
+  const l = { id:uid(), points:[...drawingPoints], name:'Lijn '+(lines.length+1),
+               tasks:'', owner:'', status:'niet_gestart' };
+  lines.push(l);
+  drawingPoints = [];
+  selectItem(l.id, 'line');
+  render();
+  saveData();
+}
+
+// ─── SELECTION & SIDEBAR ─────────────────────────────────────────────────────
+function selectItem(id, type) {
+  selectedId   = id;
+  selectedType = type;
+  const obj = getSelected();
+  if (!obj) return;
+  document.getElementById('no-selection').style.display = 'none';
+  document.getElementById('prop-fields').style.display  = 'block';
+  document.getElementById('prop-name').value  = obj.name  || '';
+  document.getElementById('prop-tasks').value = obj.tasks || '';
+  document.getElementById('prop-owner').value = obj.owner || '';
+  document.getElementById('prop-type').textContent = type==='zone' ? '⬡ Zone' : '╱ Lijn';
+  highlightStatus(obj.status);
+  if (activeTab==='list') refreshList();
+}
+
+function clearSelection() {
+  selectedId   = null;
+  selectedType = null;
+  document.getElementById('no-selection').style.display = '';
+  document.getElementById('prop-fields').style.display  = 'none';
+}
+
+function getSelected() {
+  if (!selectedId) return null;
+  if (selectedType==='zone') return zones.find(z=>z.id===selectedId);
+  if (selectedType==='line') return lines.find(l=>l.id===selectedId);
+  return null;
+}
+
+function updateSelected() {
+  const obj = getSelected();
+  if (!obj) return;
+  obj.name  = document.getElementById('prop-name').value;
+  obj.tasks = document.getElementById('prop-tasks').value;
+  obj.owner = document.getElementById('prop-owner').value;
+  render();
+}
+
+function setStatus(s) {
+  const obj = getSelected();
+  if (!obj) return;
+  obj.status = s;
+  highlightStatus(s);
+  render();
+  saveData();
+  if (activeTab==='list') refreshList();
+}
+
+function highlightStatus(s) {
+  ['niet','bezig','klaar'].forEach(k => {
+    document.getElementById('s-'+k).classList.toggle('active-status',
+      (k==='niet'&&s==='niet_gestart')||(k==='bezig'&&s==='bezig')||(k==='klaar'&&s==='klaar'));
+  });
+}
+
+function deleteSelected() {
+  if (!selectedId) return;
+  if (selectedType==='zone') zones = zones.filter(z=>z.id!==selectedId);
+  if (selectedType==='line') lines = lines.filter(l=>l.id!==selectedId);
+  clearSelection();
+  render();
+  saveData();
+  refreshList();
+}
+
+// ─── TABS ────────────────────────────────────────────────────────────────────
+function showTab(t) {
+  activeTab = t;
+  document.getElementById('tab-props').classList.toggle('active', t==='props');
+  document.getElementById('tab-list').classList.toggle('active',  t==='list');
+  document.getElementById('panel-props').style.display = t==='props'?'':'none';
+  document.getElementById('panel-list').style.display  = t==='list' ?'':'none';
+  if (t==='list') refreshList();
+}
+
+function refreshList() {
+  const el = document.getElementById('panel-list');
+  let html = '';
+  if (zones.length===0 && lines.length===0) {
+    html = '<div id="no-selection">Nog geen zones of lijnen getekend.</div>';
+  } else {
+    if (zones.length) {
+      html += '<div class="prop-label" style="margin-top:0">Zones</div>';
+      zones.forEach(z => {
+        const sel = z.id===selectedId ? ' selected' : '';
+        html += `<div class="list-item${sel}" onclick="selectItem('${z.id}','zone');showTab('props')">
+          <div class="list-item-name"><span class="dot dot-${dotClass(z.status)}"></span>${esc(z.name)}</div>
+          <div class="list-item-meta">${statusLabel(z.status)}${z.owner?' · '+esc(z.owner):''}</div>
+        </div>`;
+      });
+    }
+    if (lines.length) {
+      html += '<div class="prop-label">Lijnen</div>';
+      lines.forEach(l => {
+        const sel = l.id===selectedId ? ' selected' : '';
+        html += `<div class="list-item${sel}" onclick="selectItem('${l.id}','line');showTab('props')">
+          <div class="list-item-name"><span class="dot dot-${dotClass(l.status)}"></span>${esc(l.name)}</div>
+          <div class="list-item-meta">${statusLabel(l.status)}${l.owner?' · '+esc(l.owner):''}</div>
+        </div>`;
+      });
+    }
+  }
+  el.innerHTML = html;
+}
+
+function dotClass(s) {
+  return {niet_gestart:'niet',bezig:'bezig',klaar:'klaar'}[s]||'niet';
+}
+function statusLabel(s) {
+  return {niet_gestart:'Niet gestart',bezig:'Bezig',klaar:'Klaar'}[s]||s;
+}
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function render() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.save();
+  ctx.translate(panX, panY);
+  ctx.scale(zoom, zoom);
+
+  // Draw zones
+  zones.forEach(z => {
+    if (z.points.length < 2) return;
+    const col   = STATUS_COLOR[z.status] || '#aaa';
+    const isSel = z.id===selectedId;
+    ctx.beginPath();
+    ctx.moveTo(z.points[0][0], z.points[0][1]);
+    z.points.slice(1).forEach(p => ctx.lineTo(p[0],p[1]));
+    ctx.closePath();
+    ctx.fillStyle   = col+'28';
+    ctx.fill();
+    ctx.strokeStyle = isSel ? '#fff' : col;
+    ctx.lineWidth   = (isSel ? 3 : 2) / zoom;
+    ctx.setLineDash(isSel ? [8/zoom,4/zoom] : []);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Label
+    if (z.name) {
+      const cx = z.points.reduce((a,p)=>a+p[0],0)/z.points.length;
+      const cy = z.points.reduce((a,p)=>a+p[1],0)/z.points.length;
+      const fs = Math.max(11, Math.min(18, 13/zoom));
+      ctx.font = `bold ${fs}px system-ui`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.shadowColor='#0006'; ctx.shadowBlur=4/zoom;
+      ctx.fillText(z.name, cx, cy);
+      ctx.shadowBlur=0;
+    }
+  });
+
+  // Draw lines
+  lines.forEach(l => {
+    if (l.points.length < 2) return;
+    const col   = STATUS_COLOR[l.status] || '#aaa';
+    const isSel = l.id===selectedId;
+    ctx.beginPath();
+    ctx.moveTo(l.points[0][0], l.points[0][1]);
+    l.points.slice(1).forEach(p => ctx.lineTo(p[0],p[1]));
+    ctx.strokeStyle = isSel ? '#fff' : col;
+    ctx.lineWidth   = (isSel ? 5 : 3) / zoom;
+    ctx.setLineDash(isSel ? [10/zoom,5/zoom] : []);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Arrows on segments
+    for (let i=0;i<l.points.length-1;i++) {
+      const [ax,ay]=l.points[i],[bx,by]=l.points[i+1];
+      const mx=(ax+bx)/2, my=(ay+by)/2;
+      const angle=Math.atan2(by-ay,bx-ax);
+      const as=8/zoom;
+      ctx.beginPath();
+      ctx.moveTo(mx-Math.cos(angle-0.4)*as, my-Math.sin(angle-0.4)*as);
+      ctx.lineTo(mx,my);
+      ctx.lineTo(mx-Math.cos(angle+0.4)*as, my-Math.sin(angle+0.4)*as);
+      ctx.strokeStyle=col; ctx.lineWidth=2/zoom;
+      ctx.stroke();
+    }
+    // Label near midpoint
+    if (l.name && l.points.length>=2) {
+      const mid = Math.floor(l.points.length/2);
+      const [mx,my] = l.points[mid];
+      const fs = Math.max(10,Math.min(16,12/zoom));
+      ctx.font=`${fs}px system-ui`; ctx.textAlign='center'; ctx.textBaseline='bottom';
+      ctx.fillStyle='#fff';
+      ctx.shadowColor='#0008'; ctx.shadowBlur=4/zoom;
+      ctx.fillText(l.name, mx, my-4/zoom);
+      ctx.shadowBlur=0;
+    }
+  });
+
+  // Draw in-progress shape
+  if (drawingPoints.length > 0) {
+    const col = tool==='zone' ? '#a0c4ff' : '#ffd6a5';
+    ctx.strokeStyle = col; ctx.lineWidth = 2/zoom;
+    ctx.setLineDash([6/zoom,4/zoom]);
+    ctx.beginPath();
+    ctx.moveTo(drawingPoints[0][0], drawingPoints[0][1]);
+    drawingPoints.slice(1).forEach(p=>ctx.lineTo(p[0],p[1]));
+    if (mousePos) ctx.lineTo(mousePos[0], mousePos[1]);
+    if (tool==='zone' && drawingPoints.length>=2 && mousePos) {
+      ctx.lineTo(drawingPoints[0][0], drawingPoints[0][1]);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Dots
+    drawingPoints.forEach((p,i) => {
+      ctx.beginPath();
+      ctx.arc(p[0],p[1],4/zoom,0,Math.PI*2);
+      ctx.fillStyle = i===0 ? '#fff' : col;
+      ctx.fill();
+    });
+  }
+
+  ctx.restore();
+}
+
+// ─── SAVE / LOAD ─────────────────────────────────────────────────────────────
+function saveData() {
+  try {
+    localStorage.setItem('dreamville_zones', JSON.stringify(zones));
+    localStorage.setItem('dreamville_lines', JSON.stringify(lines));
+    localStorage.setItem('dreamville_nextid', String(nextId));
+  } catch(e){}
+}
+
+function loadData() {
+  try {
+    const z = localStorage.getItem('dreamville_zones');
+    const l = localStorage.getItem('dreamville_lines');
+    const n = localStorage.getItem('dreamville_nextid');
+    if (z) zones = JSON.parse(z);
+    if (l) lines = JSON.parse(l);
+    if (n) nextId = parseInt(n)||1;
+  } catch(e){}
+}
+
+// ─── EXPORT PNG ──────────────────────────────────────────────────────────────
+function exportPNG() {
+  if (!imageLoaded) { alert('Laad eerst een kaartafbeelding.'); return; }
+  const exp = document.createElement('canvas');
+  exp.width  = imgW;
+  exp.height = imgH;
+  const ec = exp.getContext('2d');
+  ec.drawImage(bgImg, 0,0,imgW,imgH);
+
+  // Draw on top at natural scale
+  const savedZoom=zoom, savedPanX=panX, savedPanY=panY;
+  zoom=1; panX=0; panY=0;
+  const oc=canvas;
+  // Temporarily redirect ctx drawing to exp canvas
+  const tmpCanvas=canvas;
+  // We'll redraw manually
+  function renderExport(ec2) {
+    zones.forEach(z=>{
+      if(z.points.length<2)return;
+      const col=STATUS_COLOR[z.status]||'#aaa';
+      ec2.beginPath();
+      ec2.moveTo(z.points[0][0],z.points[0][1]);
+      z.points.slice(1).forEach(p=>ec2.lineTo(p[0],p[1]));
+      ec2.closePath();
+      ec2.fillStyle=col+'28'; ec2.fill();
+      ec2.strokeStyle=col; ec2.lineWidth=2; ec2.stroke();
+      if(z.name){
+        const cx=z.points.reduce((a,p)=>a+p[0],0)/z.points.length;
+        const cy=z.points.reduce((a,p)=>a+p[1],0)/z.points.length;
+        ec2.font='bold 14px system-ui'; ec2.textAlign='center'; ec2.textBaseline='middle';
+        ec2.fillStyle='#fff'; ec2.shadowColor='#0006'; ec2.shadowBlur=4;
+        ec2.fillText(z.name,cx,cy); ec2.shadowBlur=0;
+      }
+    });
+    lines.forEach(l=>{
+      if(l.points.length<2)return;
+      const col=STATUS_COLOR[l.status]||'#aaa';
+      ec2.beginPath();
+      ec2.moveTo(l.points[0][0],l.points[0][1]);
+      l.points.slice(1).forEach(p=>ec2.lineTo(p[0],p[1]));
+      ec2.strokeStyle=col; ec2.lineWidth=3; ec2.stroke();
+      if(l.name&&l.points.length>=2){
+        const mid=Math.floor(l.points.length/2);
+        const[mx,my]=l.points[mid];
+        ec2.font='12px system-ui'; ec2.textAlign='center'; ec2.textBaseline='bottom';
+        ec2.fillStyle='#fff'; ec2.shadowColor='#0008'; ec2.shadowBlur=4;
+        ec2.fillText(l.name,mx,my-4); ec2.shadowBlur=0;
+      }
+    });
+  }
+  renderExport(ec);
+  zoom=savedZoom; panX=savedPanX; panY=savedPanY;
+
+  exp.toBlob(blob=>{
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='dreamville_sitekaart.png';
+    a.click();
+  });
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+loadData();
+resizeCanvas();
+render();
+setStatus_msg();
+if (zones.length||lines.length) refreshList();
+</script>
+</body>
+</html>
