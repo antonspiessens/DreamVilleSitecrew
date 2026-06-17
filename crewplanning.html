@@ -2518,7 +2518,7 @@ function exportJaaroverzichtCSV() {
   const all = loadTasks();
   const phaseLabels = {opbouw:'Opbouw', show:'Show', afbouw:'Afbouw'};
   const statusLabels = {todo:'Open', bezig:'Bezig', done:'Klaar'};
-  const rows = [['Datum','Dag','Fase','Taak','Ploeg','Aantal crew','Verantwoordelijke','Status','Subtaken klaar','Subtaken totaal','Prioriteit','Notities']];
+  const rows = [['Datum','Dag','Fase','Taak','Type','Ploeg','Aantal crew','Verantwoordelijke','Status','Prioriteit','Notities']];
   SCHEDULE.forEach(s=>{
     (all[s.id]||[]).forEach(t=>{
       const subs = t.subtasks||[];
@@ -2528,15 +2528,29 @@ function exportJaaroverzichtCSV() {
         s.label + (s.slot?' '+s.slot:''),
         phaseLabels[s.phase]||s.phase,
         t.title||'',
+        'Taak',
         t.team||'',
         (t.teamCount!=null && t.teamCount!=='') ? t.teamCount : '',
         t.assignee||'',
         statusLabels[st]||st,
-        subs.filter(x=>x.done).length,
-        subs.length,
         t.priority||'',
         t.notes||''
       ]);
+      subs.forEach(sub=>{
+        rows.push([
+          slotBaseDate(s.id),
+          s.label + (s.slot?' '+s.slot:''),
+          phaseLabels[s.phase]||s.phase,
+          t.title||'',
+          'Subtaak: ' + (sub.title||''),
+          t.team||'',
+          '',
+          '',
+          sub.done ? 'Klaar' : 'Open',
+          '',
+          ''
+        ]);
+      });
     });
   });
   const csv = rows.map(r=>r.map(csvEscape).join(';')).join('\r\n');
