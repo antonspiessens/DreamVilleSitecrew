@@ -1329,6 +1329,10 @@ function assigneeOptionsHtml(slot, currentAssignee) {
   if(slot.ae) opts += `<option ${currentAssignee==='All Events TL'?'selected':''}>All Events TL</option>`;
   if(slot.rw) opts += `<option ${currentAssignee==='Radarwerk TL'?'selected':''}>Radarwerk TL</option>`;
   presentFL.forEach(n=>{ opts += `<option ${currentAssignee===n?'selected':''}>${n}</option>`; });
+  if(slot.pr) {
+    if((slot.pr.tim||0)>0) opts += `<option value="Tim" ${currentAssignee==='Tim'?'selected':''}>Tim (Palenrammer)</option>`;
+    if((slot.pr.barry||0)>0) opts += `<option value="Barry" ${currentAssignee==='Barry'?'selected':''}>Barry (Palenrammer)</option>`;
+  }
   if(APP_DATA.crew && APP_DATA.crew.length > 0) {
     opts += `<optgroup label="── Crewleden ──">`;
     APP_DATA.crew.forEach(c=>{
@@ -2172,12 +2176,17 @@ function renderHomeSlot(slot) {
     const n = slot.tw.pro+(slot.tw.senior||0)+slot.tw.junior;
     html += `<span class="ck tw">Team Wauw: ${n}</span>`;
   }
+  if(slot.pr) {
+    const n = (slot.pr.tim||0)+(slot.pr.barry||0);
+    if(n>0) html += `<span class="ck pr">Palenrammer: ${n}</span>`;
+  }
   const fl = slot.fl||{};
   FREELANCERS.forEach(f=>{
     if(fl[f.key]===1) html += `<span class="ck fl">${f.name.split(' ')[0]}</span>`;
     else if(fl[f.key]===-1) html += `<span class="ck fl" style="opacity:.6">${f.name.split(' ')[0]} (opt)</span>`;
   });
-  if(antonPresent===undefined && !slot.ae && !slot.rw && !slot.tw && Object.keys(fl).length===0){
+  const _prEmpty = !slot.pr || ((slot.pr.tim||0)+(slot.pr.barry||0)===0);
+  if(antonPresent===undefined && !slot.ae && !slot.rw && !slot.tw && _prEmpty && Object.keys(fl).length===0){
     html += '<span style="font-size:12px;color:var(--muted)">Geen aanwezigheden geregistreerd.</span>';
   }
   html += '</div>';
@@ -2205,11 +2214,17 @@ function renderTasksOverview() {
   if(tvAddingTask){ html += renderNewTaskForm(); }
 
   const renderDayBlock = (s, tasks) => {
+    let chips = '';
+    if(s.ae) chips += `<span class="ck ae">All Events: ${1+s.ae.sh}</span>`;
+    if(s.rw) chips += `<span class="ck rw">Radarwerk: ${1+s.rw.arc}</span>`;
+    if(s.tw){ const n=(s.tw.pro||0)+(s.tw.senior||0)+(s.tw.junior||0); chips += `<span class="ck tw">Team Wauw: ${n}</span>`; }
+    if(s.pr){ const n=(s.pr.tim||0)+(s.pr.barry||0); if(n>0) chips += `<span class="ck pr">Palenrammer: ${n}</span>`; }
     let h = `<div style="margin-bottom:14px;">
       <div class="task-overview-day-row">
         <div class="task-overview-day" onclick="goToSlot('${s.id}')">${s.label}${s.slot?' — '+s.slot:''} <span class="toh">↗ open in planning</span></div>
         <button class="btn-icon" onclick="showNewTaskForm('${s.id}')" title="Taak toevoegen voor deze dag">+ Taak</button>
       </div>
+      ${chips?`<div class="crew-chips" style="margin:4px 0 8px">${chips}</div>`:''}
       <div class="ti-wrap">`;
     tasks.forEach(t=>{ h += renderTaskItemOverview(s.id, t); });
     h += '</div></div>';
