@@ -838,12 +838,17 @@ function renderDaySlot(slot) {
     const n = (slot.tw.pro||0)+(slot.tw.senior||0)+(slot.tw.junior||0);
     html += `<span class="ck tw">Team Wauw: ${n}</span>`;
   }
+  if(slot.pr) {
+    const n = (slot.pr.tim||0)+(slot.pr.barry||0);
+    if(n>0) html += `<span class="ck pr">Palenrammer: ${n}</span>`;
+  }
   const fl = slot.fl||{};
   FREELANCERS.forEach(f=>{
     if(fl[f.key]===1) html += `<span class="ck fl">${f.name.split(' ')[0]}</span>`;
     else if(fl[f.key]===-1) html += `<span class="ck fl" style="opacity:.6">${f.name.split(' ')[0]} (opt)</span>`;
   });
-  if(antonPresent!==1 && !slot.ae && !slot.rw && !slot.tw && Object.keys(fl).length===0){
+  const _prEmpty = !slot.pr || ((slot.pr.tim||0)+(slot.pr.barry||0)===0);
+  if(antonPresent!==1 && !slot.ae && !slot.rw && !slot.tw && _prEmpty && Object.keys(fl).length===0){
     html += '<span style="font-size:12px;color:var(--muted)">Geen aanwezigheden geregistreerd.</span>';
   }
   html += '</div>';
