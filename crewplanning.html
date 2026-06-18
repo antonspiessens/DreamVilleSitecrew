@@ -17,6 +17,7 @@
   --rw: #ef5350;
   --tw: #ffa726;
   --fl: #ab47bc;
+  --pr: #26a69a;
   --green: #4caf50;
   --yellow: #ffd54f;
   --ph-opbouw: #42a5f5;
@@ -35,6 +36,7 @@
   --rw: #e53935;
   --tw: #fb8c00;
   --fl: #8e24aa;
+  --pr: #00897b;
   --green: #2e7d32;
   --yellow: #c9920a;
   --ph-opbouw: #1e88e5;
@@ -199,6 +201,7 @@ td.cc.inactive { cursor: default; }
 .ck.rw { background: rgba(239,83,80,.15); color: var(--rw); border: 1px solid rgba(239,83,80,.25); }
 .ck.tw { background: rgba(255,167,38,.15); color: var(--tw); border: 1px solid rgba(255,167,38,.25); }
 .ck.fl { background: rgba(171,71,188,.15); color: var(--fl); border: 1px solid rgba(171,71,188,.25); }
+.ck.pr { background: rgba(0,137,123,.15); color: var(--pr); border: 1px solid rgba(0,137,123,.25); }
 .ck.ti { background: rgba(255,213,80,.12); color: var(--yellow); border: 1px solid rgba(255,213,80,.2); }
 
 /* Section title */
@@ -295,6 +298,22 @@ td.cc.inactive { cursor: default; }
 .mat-copy-btn { border: 1px solid var(--border); font-weight: 700; white-space: nowrap; flex-shrink: 0; }
 .btn-icon { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 3px 5px; border-radius: 4px; line-height: 1; }
 .btn-icon:hover { color: var(--text); background: var(--border); }
+
+/* Crewleden beheer */
+.crew-mgr-btn { margin-left: auto; padding: 3px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 11px; font-weight: 700; cursor: pointer; transition: all .15s; flex-shrink: 0; }
+.crew-mgr-btn:hover { background: var(--surface2); border-color: var(--accent); }
+.crew-modal-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; max-height: 45vh; overflow-y: auto; }
+.crew-modal-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px; background: var(--surface2); }
+.crew-modal-item-info { flex: 1; }
+.crew-modal-name { font-size: 13px; font-weight: 600; }
+.crew-modal-role { font-size: 11px; color: var(--muted); }
+.crew-add-row { display: flex; gap: 6px; margin-top: 4px; }
+.crew-add-row input { flex: 1; padding: 7px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; font-family: inherit; outline: none; }
+.crew-add-row input:focus { border-color: var(--accent); }
+.crew-modal-item { cursor: grab; }
+.crew-modal-item:active { cursor: grabbing; }
+.crew-modal-item.drag-over { border: 1px dashed var(--accent); background: var(--surface); }
+.crew-drag-handle { color: var(--muted); font-size: 11px; margin-right: 4px; line-height: 1; flex-shrink: 0; letter-spacing: -2px; opacity: .7; }
 
 /* Kopieer-taak modal */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
@@ -658,7 +677,7 @@ const SYNC = {
   apiKey: '',  // je JSONBin X-Master-Key
 };
 
-function emptyData() { return { tasks:{}, overrides:{}, notes:'', updatedAt:0 }; }
+function emptyData() { return { tasks:{}, overrides:{}, notes:'', updatedAt:0, crew:[] }; }
 
 function loadData() {
   try {
@@ -683,6 +702,7 @@ function loadData() {
 }
 
 let APP_DATA = loadData();
+if(!APP_DATA.crew) APP_DATA.crew = [];
 
 function persistLocal() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(APP_DATA));
@@ -860,6 +880,7 @@ function crewTotal(slot) {
   if(slot.ae) n+=1+slot.ae.sh;
   if(slot.rw) n+=1+slot.rw.arc;
   if(slot.tw) n+=slot.tw.pro+(slot.tw.senior||0)+slot.tw.junior;
+  if(slot.pr) n+=(slot.pr.tim||0)+(slot.pr.barry||0);
   return n;
 }
 function taskCount(slotId) { return (loadTasks()[slotId]||[]).length; }
@@ -928,6 +949,11 @@ function renderTable() {
   rows += crewRow('Pro', slots, 'tw','pro', 'tw');
   rows += crewRow('Senior', slots, 'tw','senior', 'tw');
   rows += crewRow('Junior', slots, 'tw','junior', 'tw');
+
+  // --- Section: Palenrammer ---
+  rows += sectionRow('Palenrammer', slots, 'pr');
+  rows += crewRow('Tim', slots, 'pr', 'tim', 'pr');
+  rows += crewRow('Barry', slots, 'pr', 'barry', 'pr');
 
   // --- Section: Teamlead & driver Specials ---
   rows += sectionRow('Teamlead & driver Specials', slots, 'fl');
@@ -1023,10 +1049,12 @@ function updateStats() {
   });
   const totalCrew = slots.reduce((a,s)=>a+crewTotal(s),0);
   const activeDays = slots.filter(s=>crewTotal(s)>0).length;
+  const crewCount = (APP_DATA.crew||[]).length;
   document.getElementById('statsBar').innerHTML =
     `<span><strong>${slots.length}</strong> shifts</span>` +
     `<span><strong>${activeDays}</strong> actieve crewdagen</span>` +
-    `<span><strong>${totalTasks}</strong> taken (<strong>${doneTasks}</strong> afgerond)</span>`;
+    `<span><strong>${totalTasks}</strong> taken (<strong>${doneTasks}</strong> afgerond)</span>` +
+    `<button class="crew-mgr-btn" id="crewMgrBtn" onclick="openCrewModal()">👥 Crewleden (${crewCount})</button>`;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1146,6 +1174,10 @@ function renderPanelBody(slotId) {
   if(slot.tw) {
     const n = slot.tw.pro+(slot.tw.senior||0)+slot.tw.junior;
     html += `<span class="ck tw">Team Wauw: ${n}</span>`;
+  }
+  if(slot.pr) {
+    const n = (slot.pr.tim||0)+(slot.pr.barry||0);
+    if(n>0) html += `<span class="ck pr">Palenrammer: ${n}</span>`;
   }
   // Freelancers present today
   const fl = slot.fl||{};
@@ -1297,7 +1329,112 @@ function assigneeOptionsHtml(slot, currentAssignee) {
   if(slot.ae) opts += `<option ${currentAssignee==='All Events TL'?'selected':''}>All Events TL</option>`;
   if(slot.rw) opts += `<option ${currentAssignee==='Radarwerk TL'?'selected':''}>Radarwerk TL</option>`;
   presentFL.forEach(n=>{ opts += `<option ${currentAssignee===n?'selected':''}>${n}</option>`; });
+  if(APP_DATA.crew && APP_DATA.crew.length > 0) {
+    opts += `<optgroup label="── Crewleden ──">`;
+    APP_DATA.crew.forEach(c=>{
+      const label = c.role ? `${c.name} (${c.role})` : c.name;
+      opts += `<option value="${esc(c.name)}" ${currentAssignee===c.name?'selected':''}>${esc(label)}</option>`;
+    });
+    opts += `</optgroup>`;
+  }
   return opts;
+}
+
+// ── Crewleden beheer modal ──
+let _dragCrewId = null;
+
+function _crewModalListHtml() {
+  const crew = APP_DATA.crew||[];
+  if(!crew.length) return `<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0">Nog geen crewleden toegevoegd.</div>`;
+  return crew.map(c=>[
+    '<div class="crew-modal-item" draggable="true"',
+    ' ondragstart="crewDragStart(\''+c.id+'\')"',
+    ' ondragover="crewDragOver(event,\''+c.id+'\')"',
+    ' ondrop="crewDrop(\''+c.id+'\')"',
+    ' ondragend="crewDragEnd()"',
+    ' ondragleave="this.classList.remove(\'drag-over\')"',
+    '>',
+    '<span class="crew-drag-handle" title="Slepen om te herschikken">⋮⋮</span>',
+    '<div class="crew-modal-item-info">',
+    '<div class="crew-modal-name">'+esc(c.name)+'</div>',
+    (c.role ? '<div class="crew-modal-role">'+esc(c.role)+'</div>' : ''),
+    '</div>',
+    '<button class="btn-icon" onclick="deleteCrewMember(\''+c.id+'\')" title="Verwijder">🗑️</button>',
+    '</div>'
+  ].join('')).join('');
+}
+
+function crewDragStart(id) { _dragCrewId = id; }
+function crewDragOver(e, id) {
+  e.preventDefault();
+  document.querySelectorAll('.crew-modal-item').forEach(el=>el.classList.remove('drag-over'));
+  if(id !== _dragCrewId) e.currentTarget.classList.add('drag-over');
+}
+function crewDrop(targetId) {
+  document.querySelectorAll('.crew-modal-item').forEach(el=>el.classList.remove('drag-over'));
+  if(!_dragCrewId || _dragCrewId === targetId) { _dragCrewId=null; return; }
+  const crew = APP_DATA.crew||[];
+  const fromIdx = crew.findIndex(c=>c.id===_dragCrewId);
+  const toIdx   = crew.findIndex(c=>c.id===targetId);
+  if(fromIdx<0||toIdx<0) { _dragCrewId=null; return; }
+  const [moved] = crew.splice(fromIdx, 1);
+  crew.splice(toIdx, 0, moved);
+  _dragCrewId = null;
+  saveData();
+  document.getElementById('crewModalList').innerHTML = _crewModalListHtml();
+  renderTable();
+}
+function crewDragEnd() {
+  _dragCrewId = null;
+  document.querySelectorAll('.crew-modal-item').forEach(el=>el.classList.remove('drag-over'));
+}
+
+function openCrewModal() {
+  if(document.getElementById('crewModal')) return;
+  const html = `<div class="modal-overlay" id="crewModal" onclick="if(event.target===this)closeCrewModal()">
+    <div class="modal-box" style="max-width:380px">
+      <h3>👥 Crewleden</h3>
+      <div class="crew-modal-list" id="crewModalList">${_crewModalListHtml()}</div>
+      <div class="crew-add-row">
+        <input id="crewNameIn" placeholder="Naam" />
+        <input id="crewRoleIn" placeholder="Functie" style="max-width:130px"/>
+        <button class="btn-primary" onclick="addCrewMember()">+</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  const ni = document.getElementById('crewNameIn');
+  const ri = document.getElementById('crewRoleIn');
+  ni.focus();
+  ni.addEventListener('keydown', e=>{ if(e.key==='Enter') ri.focus(); });
+  ri.addEventListener('keydown', e=>{ if(e.key==='Enter') addCrewMember(); });
+}
+
+function closeCrewModal() {
+  const m = document.getElementById('crewModal');
+  if(m) m.remove();
+}
+
+function addCrewMember() {
+  const name = (document.getElementById('crewNameIn').value||'').trim();
+  const role = (document.getElementById('crewRoleIn').value||'').trim();
+  if(!name) { document.getElementById('crewNameIn').focus(); return; }
+  if(!Array.isArray(APP_DATA.crew)) APP_DATA.crew = [];
+  APP_DATA.crew.push({id: Date.now().toString(), name, role});
+  saveData();
+  document.getElementById('crewModalList').innerHTML = _crewModalListHtml();
+  document.getElementById('crewNameIn').value = '';
+  document.getElementById('crewRoleIn').value = '';
+  document.getElementById('crewNameIn').focus();
+  renderTable();
+}
+
+function deleteCrewMember(id) {
+  if(!Array.isArray(APP_DATA.crew)) APP_DATA.crew = [];
+  APP_DATA.crew = APP_DATA.crew.filter(c=>c.id!==id);
+  saveData();
+  document.getElementById('crewModalList').innerHTML = _crewModalListHtml();
+  renderTable();
 }
 
 function renderTaskForm(slotId, slot, task) {
@@ -1944,6 +2081,8 @@ function switchView(view) {
   document.querySelectorAll('.nav-item:not(.nav-link)').forEach(b=>b.classList.toggle('active', b.dataset.view===view));
   document.querySelectorAll('.main, .view-page').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+view).classList.add('active');
+  const _cBtn = document.getElementById('crewMgrBtn');
+  if(_cBtn && view !== 'crew') _cBtn.style.display = 'none';
   if(view==='home'){ renderHomeView(); }
   else if(view==='crew'){ renderTable(); }
   else if(view==='tasks'){ renderTasksOverview(); }
@@ -1966,6 +2105,8 @@ function goToSlot(slotId) {
 
 // ── Home dashboard (vandaag, morgen & overmorgen) ──
 function renderHomeView() {
+  const _hBtn = document.getElementById('crewMgrBtn');
+  if(_hBtn) _hBtn.style.display = 'none';
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24*60*60*1000);
   const dayAfter = new Date(now.getTime() + 2*24*60*60*1000);
