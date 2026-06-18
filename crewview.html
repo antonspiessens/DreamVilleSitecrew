@@ -610,6 +610,13 @@ function statusIcon(x) {
   return st==='done' ? '✓' : st==='bezig' ? '●' : '';
 }
 function slotBaseDate(id) { return id.slice(0,10); }
+function isTaskDoneEffective(t) {
+  if(t.done || t.status==='done') return true;
+  const subs = t.subtasks||[];
+  return subs.length>0 && subs.every(s=>s.done||s.status==='done');
+}
+let tasksShowPast = false;
+function toggleTasksPast() { tasksShowPast = !tasksShowPast; renderTasksOverviewReadOnly(); }
 const WD_FULL = ['Zondag','Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag'];
 function fmtHomeDate(dateStr) {
   const [y,m,d] = dateStr.split('-').map(Number);
@@ -1214,24 +1221,52 @@ function renderTasksOverviewReadOnly() {
     return;
   }
 
+  const todayStr = new Date().toISOString().slice(0,10);
   let html = '<h2>Takenoverzicht</h2>' + toggleHtml;
   const phases = [['opbouw','Opbouw'],['show','Show'],['afbouw','Afbouw']];
   let any = false;
+  let pastHtml = '';
+  let anyPast = false;
   phases.forEach(([pkey,plabel])=>{
     const slots = SCHEDULE.filter(s=>s.phase===pkey && getTasksForSlot(s.id).length>0 && slotMatchesFilter(s));
     if(slots.length===0) return;
-    any = true;
-    html += `<div class="sec-title"><h3>${plabel}</h3></div>`;
+    const upcoming = [];
+    const past = [];
     slots.forEach(s=>{
       const tasks = getTasksForSlot(s.id);
-      html += `<div class="task-overview-block">
-        <div class="task-overview-day">${s.label}${s.slot?' — '+s.slot:''}</div>
-        <div class="ti-wrap">`;
-      tasks.forEach(t=>{ html += renderTaskItemReadOnly(s.id, t); });
-      html += '</div></div>';
+      const isPastDone = slotBaseDate(s.id)<todayStr && tasks.every(isTaskDoneEffective);
+      (isPastDone ? past : upcoming).push(s);
     });
+    if(upcoming.length>0){
+      any = true;
+      html += `<div class="sec-title"><h3>${plabel}</h3></div>`;
+      upcoming.forEach(s=>{
+        const tasks = getTasksForSlot(s.id);
+        html += `<div class="task-overview-block">
+          <div class="task-overview-day">${s.label}${s.slot?' — '+s.slot:''}</div>
+          <div class="ti-wrap">`;
+        tasks.forEach(t=>{ html += renderTaskItemReadOnly(s.id, t); });
+        html += '</div></div>';
+      });
+    }
+    if(past.length>0){
+      anyPast = true;
+      pastHtml += `<div class="sec-title"><h3>${plabel}</h3></div>`;
+      past.forEach(s=>{
+        const tasks = getTasksForSlot(s.id);
+        pastHtml += `<div class="task-overview-block">
+          <div class="task-overview-day">${s.label}${s.slot?' — '+s.slot:''}</div>
+          <div class="ti-wrap">`;
+        tasks.forEach(t=>{ pastHtml += renderTaskItemReadOnly(s.id, t); });
+        pastHtml += '</div></div>';
+      });
+    }
   });
-  if(!any) html += '<div class="empty-msg">Nog geen taken aangemaakt voor deze selectie.</div>';
+  if(!any && !anyPast) html += '<div class="empty-msg">Nog geen taken aangemaakt voor deze selectie.</div>';
+  if(anyPast){
+    html += `<div class="materials-toggle" onclick="toggleTasksPast()">🕘 Verleden <span class="mat-arrow">${tasksShowPast?'▾':'▸'}</span></div>`;
+    if(tasksShowPast) html += `<div class="materials-panel">${pastHtml}</div>`;
+  }
   document.getElementById('content').innerHTML = html;
 }
 
