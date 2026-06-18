@@ -771,7 +771,7 @@ function applyOverrides() {
       if(v===null) delete ANTON[slotId];
       else ANTON[slotId] = v;
     }
-    ['ae','rw','tw'].forEach(grp=>{
+    ['ae','rw','tw','pr'].forEach(grp=>{
       if(ov[grp]){
         slot[grp] = {...(slot[grp]||{})};
         Object.keys(ov[grp]).forEach(k=>{
