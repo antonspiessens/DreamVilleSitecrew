@@ -827,7 +827,7 @@ const SYNC = {
   apiKey: '$2a$10$iiFDK.OPrJBT.uKNd4Repufy7Eu9KryV42t3zOKl7jCw4lMEelWt6',
 };
 
-function emptyData() { return { tasks:{}, overrides:{}, notes:'', notesList:[], updatedAt:0, crew:[] }; }
+function emptyData() { return { tasks:{}, overrides:{}, notes:'', notesList:[], updatedAt:0, crew:[], contacts:null }; }
 
 function loadData() {
   try {
@@ -853,6 +853,13 @@ function loadData() {
 
 let APP_DATA = loadData();
 if(!APP_DATA.crew) APP_DATA.crew = [];
+// Migratie: contacten uit oude aparte localStorage key naar APP_DATA
+if(!APP_DATA.contacts) {
+  try {
+    const oldC = JSON.parse(localStorage.getItem('dv26_contacts'));
+    if(oldC && oldC.length) { APP_DATA.contacts = oldC; saveData(); }
+  } catch(e) {}
+}
 
 function persistLocal() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(APP_DATA));
@@ -3825,8 +3832,7 @@ setTimeout(()=>{
 // ═══════════════════════════════════════════════════════
 // CONTACTENLIJST
 // ═══════════════════════════════════════════════════════
-// ── Contacten: localStorage ──
-const CONTACTS_KEY = 'dv26_contacts';
+// ── Contacten: opgeslagen in APP_DATA (gesynchroniseerd via JSONBin) ──
 const DEFAULT_CONTACTS = [
   { title: '🏗️ Sitecrew — Opbouw', rows: [
     { role: 'Crewchef opbouw', name: '', phone: '' },
@@ -3874,10 +3880,9 @@ const DEFAULT_CONTACTS = [
 ];
 
 function contactLoad() {
-  try { const d = JSON.parse(localStorage.getItem(CONTACTS_KEY)); return (d && d.length) ? d : DEFAULT_CONTACTS; }
-  catch(e) { return DEFAULT_CONTACTS; }
+  return (APP_DATA.contacts && APP_DATA.contacts.length) ? APP_DATA.contacts : DEFAULT_CONTACTS;
 }
-function contactSave(data) { localStorage.setItem(CONTACTS_KEY, JSON.stringify(data)); }
+function contactSave(data) { APP_DATA.contacts = data; saveData(); }
 
 function contactCollect() {
   const data = [];
